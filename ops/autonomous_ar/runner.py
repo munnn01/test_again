@@ -6,9 +6,11 @@ import base64
 import datetime
 import hashlib
 import io
+import importlib.util
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import zipfile
@@ -186,6 +188,87 @@ def submit(args):
         raise SystemExit(rc)
 
 
+
+def audit_download(job, run):
+    """Recompute decisions locally; downloaded summaries alone cannot admit a model."""
+    import torch
+    import yaml
+
+    spec = json.loads((run / "job_spec.json").read_text())
+    for key in ("payload_sha256", "candidate_ref", "codec", "seed", "steps", "stage", "source_sha256", "config", "files"):
+        if spec[key] != job[key]:
+            raise ValueError(f"downloaded {key} differs from the immutable job")
+    for name in ("ops/autonomous_ar/protocol.py", "ops/report_v13_task_regret.py"):
+        if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != job["files"][name]:
+            raise ValueError("current local audit helpers differ from this job; restore immutable bytes before collection")
+    protocol_spec = importlib.util.spec_from_file_location("local_autonomous_audit", ROOT / "ops/autonomous_ar/protocol.py")
+    protocol = importlib.util.module_from_spec(protocol_spec)
+    protocol_spec.loader.exec_module(protocol)
+    index = json.loads((run / "full_index.json").read_text())
+    protocol.partitions(index)
+    phases = ["dev"] if job["stage"] == "screen" else ["confirmation", "full"]
+    scores = {}
+    for phase in phases:
+        scores[phase] = protocol.score(json.loads((run / phase / "results.json").read_text()),
+                                       run / phase / "sequence_points.csv", index, job["codec"], phase)
+        if scores[phase] != json.loads((run / phase / "decision.json").read_text()):
+            raise ValueError("remote decision disagrees with independent local scoring")
+    manifest = json.loads((run / "checkpoint_manifest.json").read_text())
+    cfg = manifest["cfg"]
+    notebook = json.loads((Path(job["push_dir"]) / "notebook.ipynb").read_text())
+    cell = "".join(notebook["cells"][0]["source"])
+    payload = base64.b64decode(re.search(r'payload=base64.b64decode\("([A-Za-z0-9+/=]+)"\)', cell).group(1))
+    if hashlib.sha256(payload).hexdigest() != job["payload_sha256"]:
+        raise ValueError("local payload changed")
+    with zipfile.ZipFile(io.BytesIO(payload)) as archive:
+        registered = yaml.safe_load(archive.read(job["config"]))
+    for section in ("task", "model", "loss"):
+        if cfg[section] != registered[section]:
+            raise ValueError(f"checkpoint {section} differs from the candidate")
+    expected_train = dict(registered["train"], epochs=1, max_steps=job["steps"], finetune=True, resume=False, cosine=False, patience=0)
+    expected_codec = dict(registered["codec"], ste_codec=job["codec"], ste_alternate=False)
+    if cfg["train"] != expected_train or cfg["codec"] != expected_codec or cfg["seed"] != job["seed"]:
+        raise ValueError("checkpoint training protocol differs from registered overrides")
+    training_slug = job["slug"] if job["stage"] == "screen" else job["source_job"]
+    expected_data = dict(registered["data"], index=f"/kaggle/working/outputs/autonomous_ar/{training_slug}/indices/dev.json")
+    if cfg["data"] != expected_data:
+        raise ValueError("checkpoint data preprocessing or training validation split changed")
+    if job["stage"] == "screen":
+        checkpoint = run / "train/checkpoints/preprocessor_last.pth"
+    else:
+        prior = load_state()["jobs"][job["source_job"]]
+        checkpoint = Path(prior["download_dir"]) / "outputs/autonomous_ar" / prior["slug"] / "train/checkpoints/preprocessor_last.pth"
+        if manifest["final_sha256"] != job["source_sha256"]:
+            raise ValueError("confirmation checkpoint bytes changed")
+    if hashlib.sha256(checkpoint.read_bytes()).hexdigest() != manifest["final_sha256"]:
+        raise ValueError("checkpoint bytes differ from manifest")
+    checkpoint_state = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    if checkpoint_state["cfg"] != cfg or checkpoint_state["task_duals"] != manifest["task_duals"] or checkpoint_state["global_step"] != job["steps"]:
+        raise ValueError("checkpoint state differs from manifest")
+    if any(float(v) != 0 for v in checkpoint_state["rate_duals"].values()):
+        raise ValueError("old rate duals were not reset")
+    if checkpoint_state.get("sched") is not None or any(group["lr"] != registered["train"]["lr"] for group in checkpoint_state["opt"]["param_groups"]):
+        raise ValueError("optimizer/scheduler protocol differs from the candidate")
+    result = {"stage": job["stage"], "scores": scores,
+              "development_pass": scores.get("dev", {}).get("passes", False),
+              "goal_complete": job["stage"] == "confirmation" and all(row["passes"] for row in scores.values())}
+    if result != json.loads((run / "summary.json").read_text()):
+        raise ValueError("remote summary differs from independently audited gates")
+    (run / "local_audit.json").write_text(json.dumps(dict(result, local_audit_passed=True), indent=2, sort_keys=True), encoding="utf-8")
+    package = ROOT / "results/autonomous_ar" / job["slug"]
+    package.mkdir(parents=True, exist_ok=True)
+    for name in ("job_spec.json", "checkpoint_manifest.json", "summary.json", "local_audit.json"):
+        shutil.copyfile(run / name, package / name)
+    for phase in phases:
+        (package / phase).mkdir(exist_ok=True)
+        for name in ("results.json", "curves.csv", "sequence_points.csv", "decision.json", "rate_accuracy.png", "eval.log"):
+            if (run / phase / name).is_file():
+                shutil.copyfile(run / phase / name, package / phase / name)
+    evidence = {str(path.relative_to(package)).replace("\\", "/"): {"bytes": path.stat().st_size, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
+                for path in package.rglob("*") if path.is_file() and path.name != "evidence_manifest.json"}
+    (package / "evidence_manifest.json").write_text(json.dumps({"files": evidence, "raw_download": str(run.parent.parent.parent), "local_audit_passed": True}, indent=2, sort_keys=True), encoding="utf-8")
+    return result, manifest
+
 def poll(args):
     state = load_state()
     selected = [state["jobs"][args.job]] if args.job else list(state["jobs"].values())
@@ -197,7 +280,7 @@ def poll(args):
         status = status_from(output)
         job["status"] = status if rc == 0 else "status_error"
         job["last_poll"] = now()
-        if status == "complete" and args.download:
+        if status in ("complete", "error", "failed") and args.download:
             destination = ROOT / "outputs/autonomous_ar/downloads" / job["slug"]
             rc, download_output = kaggle(job["account"], ["kernels", "output", job["handle"], "-p", str(destination)], timeout=180)
             if rc:
@@ -206,16 +289,13 @@ def poll(args):
                 run = destination / "outputs/autonomous_ar" / job["slug"]
                 summary_path = run / "summary.json"
                 if summary_path.exists():
-                    summary = json.loads(summary_path.read_text())
-                    spec = json.loads((run / "job_spec.json").read_text())
-                    if spec["payload_sha256"] != job["payload_sha256"] or spec["candidate_ref"] != job["candidate_ref"]:
-                        raise ValueError("downloaded artifact does not match immutable job")
+                    summary, manifest = audit_download(job, run)
                     job.update({"status": "evaluated", "development_pass": summary["development_pass"],
                                 "goal_complete": summary["goal_complete"], "scores": summary["scores"],
-                                "checkpoint": json.loads((run / "checkpoint_manifest.json").read_text()),
+                                "checkpoint": manifest, "local_audit_passed": True,
                                 "download_dir": str(destination)})
                 else:
-                    job["status"] = "artifact_incomplete"
+                    job["status"] = "execution_failed" if status in ("error", "failed") else "artifact_incomplete"
                     job["download_dir"] = str(destination)
         save_state(state)
         print(json.dumps({"handle": job["handle"], "status": job["status"],

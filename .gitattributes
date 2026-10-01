@@ -7,3 +7,4 @@ results/v13_task_regret_screen/** -text whitespace=cr-at-eol
 ops/report_v13_task_regret.py -text whitespace=cr-at-eol
 ops/autonomous_ar/protocol.py -text whitespace=cr-at-eol
 ops/autonomous_ar/__init__.py -text whitespace=cr-at-eol
+results/autonomous_ar/** -text whitespace=cr-at-eol
