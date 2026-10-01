@@ -20,3 +20,8 @@ Không tạo thêm ứng viên hay lịch tự kiểm tra. Mục tiêu/các ngư
 802 clip dành riêng khỏi tìm kiếm nhưng từng thuộc validation dùng trước đây;
 không coi đây là quần thể kiểm chứng mới. Bằng chứng nằm ở results/autonomous_ar/
 và trạng thái/cây giả thuyết trong ops/autonomous_ar/,docs/autonomous_ar_20261001/.
+
+Theo chỉ đạo dừng: n6/n7 đã gửi thành công và được xác minh đang chạy.
+Notebook hiện có tự hoàn tất train/eval/xuất báo cáo trên Kaggle. Lịch heartbeat đã xóa;
+goal tự tiếp tục được tạm dừng, không tạo thử nghiệm hay lượt thu kết quả tự động mới.
+Tại thời điểm dừng chưa có chỉ số n6/n7; không tuyên bố đạt ngưỡng -10%.
