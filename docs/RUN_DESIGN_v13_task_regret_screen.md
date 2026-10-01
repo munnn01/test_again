@@ -60,3 +60,14 @@ treatment from the same checkpoint, replicate on independent seeds over all
 1,010 validation clips, then make one final untouched evaluation on the
 1,159-clip test split.
 No threshold or hyperparameter may be changed after looking at screen output.
+
+## Execution status — audited 2026-10-01
+
+Both registered Kaggle jobs completed three full epochs / 12,948 steps.
+The recovered artifacts pass the source/configuration/checkpoint and paired
+208-clip screen audit. H.264 BD-rate is +3.7335%; H.265 is +15.7634%. Both
+fail all three registered gates and are futility stops. The additional user
+acceptance requirement (BD-rate <= -10% for each codec, clarified 2026-10-01)
+is recorded separately and also fails. Registered thresholds are unchanged.
+
+See [the audited results](RESULTS_v13_task_regret_screen_2026-10-01.md).

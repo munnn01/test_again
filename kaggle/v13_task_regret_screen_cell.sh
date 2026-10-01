@@ -28,6 +28,13 @@ git clone -q https://github.com/munnn01/pre_updated.git "$REPO"
 git -C "$REPO" checkout -q "$REF"
 cd "$REPO"
 
+# Carry the local audit helper alongside the immutable training commit.
+python - <<'V13_REPORT_BOOTSTRAP'
+import base64
+from pathlib import Path
+Path("ops/report_v13_task_regret.py").write_bytes(base64.b64decode("__V13_REPORT_BASE64__"))
+V13_REPORT_BOOTSTRAP
+
 python -c 'import torch, torchvision; print("torch", torch.__version__, "torchvision", torchvision.__version__, "cuda", torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else "")'
 ffmpeg -hide_banner -encoders 2>/dev/null | grep -E 'libx264|libx265' || true
 
@@ -50,6 +57,7 @@ if [ -z "$KIN_ROOT" ]; then
 fi
 python scripts/build_train_index.py \
   --root "$KIN_ROOT" --out "$INDEX" --assert-fingerprint 30f083f8520a
+python ops/report_v13_task_regret.py --index "$INDEX"
 
 case "$CODEC" in
   h264)
@@ -154,11 +162,15 @@ python evaluate.py --config configs/v13_task_regret_ar.yaml \
   eval.held_out_backbone=r2plus1d_18 \
   2>&1 | tee "$EVAL_OUT/eval.log"
 
+python ops/report_v13_task_regret.py --index "$INDEX" --codec "$CODEC" \
+  --results "$EVAL_OUT/results.json" --points "$EVAL_OUT/sequence_points.csv" \
+  --out "$ROOT_OUT/decision.json" --checkpoint "$FINAL"
+
 python - "$FINAL" "$EVAL_OUT/results.json" "$ROOT_OUT/manifest.json" \
   "$CODEC" "$EXPECTED_SOURCE_SHA" "$FINAL_SHA" "$SEED" "$REF" <<'PY'
 import json
-import math
 import sys
+from pathlib import Path
 import torch
 
 (
@@ -175,11 +187,10 @@ state = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
 with open(result_path, encoding="utf-8") as handle:
     report = json.load(handle)
 assert report["n_eval"] == 208, report["n_eval"]
-metric = report["bd_prep_gain"][f"prep+{codec} vs {codec}"]
-assert math.isfinite(float(metric["bd_rate_pct"])), metric
-assert math.isfinite(float(metric["bd_accuracy"])), metric
 assert report["curves"][codec]["keys"] == [50, 45, 40, 35, 30]
 assert report["curves"][f"prep+{codec}"]["keys"] == [50, 45, 40, 35, 30]
+with open(Path(manifest_path).with_name("decision.json"), encoding="utf-8") as handle:
+    decision = json.load(handle)
 manifest = {
     "protocol": "v13-task-regret-screen",
     "commit": commit,
@@ -191,9 +202,13 @@ manifest = {
     "global_step": int(state["global_step"]),
     "n_eval": int(report["n_eval"]),
     "shard_salt": "v13-task-regret-screen-v1",
-    "shard_fingerprint": "f321b810af2c507c",
-    "bd_rate_pct": float(metric["bd_rate_pct"]),
-    "bd_accuracy": float(metric["bd_accuracy"]),
+    "shard_fingerprint": decision["shard_fingerprint"],
+    "bd_rate_pct": decision["bd_rate_pct"],
+    "bd_accuracy": decision["bd_accuracy"],
+    "registered_decision": decision["registered_decision"],
+    "user_acceptance": decision["user_acceptance"],
+    "user_bd_rate_max_pct": -10.0,
+    "top1_gap_pp_by_qp": decision["top1_gap_pp_by_qp"],
     "task_duals": {
         key: float(value) for key, value in state["task_duals"].items()
     },

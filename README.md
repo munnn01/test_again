@@ -37,6 +37,8 @@ Các JSON tổng hợp [H.264](results/dual_codec_search_v2_confirm_1000/h264_re
 
 ## Mã và tái lập
 
+- [Màn hình learned-AR V13 đã kiểm toán](docs/RESULTS_v13_task_regret_screen_2026-10-01.md): hai run có đủ 12.948 bước và đúng 208 clip. BD-rate H.264 **+3,73%**, H.265 **+15,76%**; cả hai dừng theo thiết kế và không đạt ngưỡng ≤ −10%. Đây là kết quả thăm dò âm, tách khỏi gói V2-C chính.
+
 - [Thiết kế và giới hạn nghiên cứu](docs/PAPER_VALIDATION_PLAN.md): phép so sánh cố định, bootstrap ghép cặp, phép thử analyzer thứ ba và chi phí chạy còn phải đo.
 - [Policy và runner V2](ops/dual_codec_search_confirm_1000.py), [tạo panel Kinetics](ops/paper_ar_visual.py), [OD pilot và panel COCO](ops/probe_background_suppression.py).
 - [Phân tích ablation](ops/paper_validation.py), [runner `mc3_18` chưa đo](ops/paper_heldout_mc3.py), [runner thời gian chạy chưa đo](ops/paper_runtime.py). Có mã không đồng nghĩa đã có kết quả thực nghiệm.

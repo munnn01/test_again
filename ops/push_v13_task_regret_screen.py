@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import re
 import shutil
@@ -59,6 +60,9 @@ def render_cell(ref: str, codec: str, seed: int, expected_source_sha: str) -> st
         "__CODEC__": codec,
         "__SEED__": str(int(seed)),
         "__EXPECTED_SOURCE_SHA__": expected_source_sha,
+        "__V13_REPORT_BASE64__": base64.b64encode(
+            (REPO / "ops" / "report_v13_task_regret.py").read_bytes()
+        ).decode("ascii"),
     }.items():
         cell = cell.replace(source, target)
     return cell
