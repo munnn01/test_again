@@ -55,7 +55,7 @@ from .data import (
     collate_got10k,
     iter_sequences,
 )
-from .losses import LossWeights, preprocessing_loss
+from .losses import LossWeights, classification_regret_terms, preprocessing_loss
 from .metrics import aggregate_metrics, bd_metric, bd_rate, sequence_metrics
 from .models import (
     AdditiveCondPreprocessor,
@@ -626,35 +626,58 @@ def _task_regret_constraint_settings(
     qp_list: list[int],
     codecs: tuple[str, ...] = ("h264", "h265"),
 ) -> dict:
-    """Validate V13's codec/QP-conditioned task-regret constraint.
+    """Validate codec/QP task regret (V13 scalar or optional n4 safety mode).
 
     CRC-V5 minimized task loss while constraining rate to the anchor.  That
     objective converged to an R-D pivot near zero BD-rate.  V13 reverses the
     constrained problem: minimize the same real-codec rate ratio while one
     projected dual per codec/QP cell limits task loss relative to the raw clip
-    encoded by the *same* codec and QP.
+    encoded by the *same* codec and QP. Optional positive_per_example mode
+    prevents cancellation and adds correct-anchor classification safeguards.
     """
     active_codecs = _codec_names(codecs, field="task_regret_constraint codecs")
-    raw = cfg.get("loss", {}).get("task_regret_constraint") or {}
+    raw = cfg.get("loss", {}).get("task_regret_constraint")
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        raise ValueError("task_regret_constraint must be a mapping")
     settings = {
         "enabled": bool(raw.get("enabled", False)),
+        "mode": raw.get("mode", "mean"),
+        "margin_weight": float(raw.get("margin_weight", 0.0)),
+        "kl_weight": float(raw.get("kl_weight", 0.0)),
+        "temperature": float(raw.get("temperature", 1.0)),
         "epsilon": float(raw.get("epsilon", 0.0)),
         "dual_lr": float(raw.get("dual_lr", 0.0)),
         "mu_init": float(raw.get("mu_init", 0.0)),
         "mu_max": float(raw.get("mu_max", 10.0)),
         "rate_weight": float(raw.get("rate_weight", 1.0)),
     }
+    if settings["mode"] not in ("mean", "positive_per_example"):
+        raise ValueError("task_regret_constraint.mode must be mean or positive_per_example")
+    if settings["mode"] == "mean" and (
+        settings["margin_weight"] != 0 or settings["kl_weight"] != 0
+    ):
+        raise ValueError("regret safeguard weights require mode=positive_per_example")
     numeric = [
         settings[key]
-        for key in ("epsilon", "dual_lr", "mu_init", "mu_max", "rate_weight")
+        for key in (
+            "epsilon", "dual_lr", "mu_init", "mu_max", "rate_weight",
+            "margin_weight", "kl_weight", "temperature",
+        )
     ]
     if not all(math.isfinite(value) for value in numeric):
         raise ValueError("task_regret_constraint values must be finite")
-    if any(settings[key] < 0 for key in ("epsilon", "dual_lr", "mu_init", "rate_weight")):
+    if any(
+        settings[key] < 0
+        for key in ("epsilon", "dual_lr", "mu_init", "rate_weight", "margin_weight", "kl_weight")
+    ):
         raise ValueError(
-            "task_regret_constraint epsilon/dual_lr/mu_init/rate_weight "
+            "task_regret_constraint epsilon/dual_lr/mu_init/rate_weight/safeguard weights "
             "must be non-negative"
         )
+    if settings["temperature"] <= 0:
+        raise ValueError("task_regret_constraint.temperature must be positive")
     if settings["mu_max"] <= 0 or settings["mu_init"] > settings["mu_max"]:
         raise ValueError(
             "task_regret_constraint requires 0 <= mu_init <= mu_max"
@@ -713,6 +736,59 @@ def _codec_task_regret_constraint(settings: dict, codec: str) -> dict:
         raise ValueError(
             f"no task-regret-constraint settings for codec {name!r}"
         ) from exc
+
+
+def _validate_task_regret_analyzer(settings: dict, analyzer) -> None:
+    """Reject unsupported safeguards before the common loop takes any steps."""
+    if not settings["enabled"] or settings["mode"] == "mean":
+        return
+    if not getattr(analyzer, "supports_task_logits", False):
+        raise ValueError(
+            "positive_per_example task regret requires differentiable class logits; "
+            "OD/tracking must use the default mean mode"
+        )
+    if any(parameter.requires_grad for parameter in analyzer.parameters()):
+        raise ValueError("positive_per_example task regret requires frozen training teachers")
+
+
+def _task_regret_terms(analyzer, x_hat, anchor_hat, target, settings: dict) -> dict:
+    """One task measurement shared by all codec/QP cells and task trainers."""
+    if settings["mode"] == "mean":
+        with torch.no_grad():
+            anchor_loss, _ = analyzer.accuracy_loss(anchor_hat.detach(), target)
+        task_loss, _ = analyzer.accuracy_loss(x_hat, target)
+        regret = task_loss - anchor_loss.detach()
+        zero = task_loss.new_zeros(())
+        return {
+            "task_loss": task_loss, "anchor_loss": anchor_loss.detach(),
+            "regret": regret, "signed_regret": regret,
+            "positive_ce_regret": zero, "margin_guard": zero, "kl_guard": zero,
+        }
+    _validate_task_regret_analyzer(settings, analyzer)
+    if getattr(analyzer, "sampling", None) == "sample" and not analyzer._pinned:
+        raise ValueError("sampled teachers must be pinned for paired task regret")
+    with torch.no_grad():
+        anchors = analyzer.task_logits(anchor_hat.detach())
+    treatments = analyzer.task_logits(x_hat)
+    if not treatments or len(anchors) != len(treatments):
+        raise ValueError("anchor and treatment teacher components must match")
+    total = None
+    for (anchor_weight, anchor_logits), (weight, logits) in zip(anchors, treatments):
+        if weight != anchor_weight or not math.isfinite(weight) or weight < 0:
+            raise ValueError(
+                "anchor and treatment teacher weights must match and be non-negative"
+            )
+        terms = classification_regret_terms(
+            logits, anchor_logits, target,
+            margin_weight=settings["margin_weight"],
+            kl_weight=settings["kl_weight"],
+            temperature=settings["temperature"],
+        )
+        if total is None:
+            total = {key: weight * value for key, value in terms.items()}
+        else:
+            total = {key: total[key] + weight * value for key, value in terms.items()}
+    return total
 
 
 def _evaluation_codecs(cfg: dict) -> tuple[str, ...]:
@@ -902,6 +978,7 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                 "loss.task_regret_constraint requires model.cond_dim=3 "
                 "([QP,h264,h265])"
             )
+    _validate_task_regret_analyzer(task_regret_constraint, analyzer)
     initial_dual = rate_constraint["lambda_init"] if rate_constraint["enabled"] else 0.0
     rate_duals = {cell: initial_dual for cell in rate_constraint["cells"]}
     initial_task_dual = (
@@ -1038,6 +1115,7 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
         )
         print(
             "[train] codec/QP task-regret constraint: "
+            f"mode={task_regret_constraint['mode']} "
             f"codecs={','.join(task_regret_constraint['codecs'])} "
             f"per_codec={codec_settings_log} "
             f"mu_init={task_regret_constraint['mu_init']:.4g} "
@@ -1116,6 +1194,7 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                 task_violation = float("nan")
                 task_anchor_t = bpp.new_tensor(float("nan"))
                 task_regret_t = bpp.new_tensor(float("nan"))
+                task_safety_terms = {}
                 if rate_constraint["enabled"]:
                     codec_rate = _codec_rate_constraint(rate_constraint, codec_name)
                     # Same content, codec and QP as the treatment arm.  The
@@ -1149,12 +1228,12 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                     # The anchor is the raw clip passed through the same real
                     # codec/QP.  Its loss is detached: it defines the allowable
                     # regret, while gradients flow only through prep+codec.
-                    with torch.no_grad():
-                        task_anchor_t, _ = analyzer.accuracy_loss(
-                            anchor_hat, target
-                        )
-                    task_loss_value, _ = analyzer.accuracy_loss(x_hat, target)
-                    task_regret_t = task_loss_value - task_anchor_t.detach()
+                    task_safety_terms = _task_regret_terms(
+                        analyzer, x_hat, anchor_hat, target, task_regret_constraint
+                    )
+                    task_anchor_t = task_safety_terms["anchor_loss"]
+                    task_loss_value = task_safety_terms["task_loss"]
+                    task_regret_t = task_safety_terms["regret"]
                     task_objective = task_regret_t - codec_task["epsilon"]
                     task_violation = float(task_objective.detach())
                     task_duals[cell] = min(
@@ -1190,6 +1269,10 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                 parts["rate_dual"] = bpp.new_tensor(rate_duals[cell])
                 parts["task_anchor_loss"] = task_anchor_t.detach()
                 parts["task_regret"] = task_regret_t.detach()
+                for key in ("signed_regret", "positive_ce_regret", "margin_guard", "kl_guard"):
+                    parts["task_" + key] = task_safety_terms.get(
+                        key, bpp.new_tensor(float("nan"))
+                    ).detach()
                 parts["task_violation"] = bpp.new_tensor(task_violation)
                 parts["task_dual"] = bpp.new_tensor(task_duals[cell])
             finally:

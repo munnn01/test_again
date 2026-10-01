@@ -31,7 +31,7 @@ measured at eval against a backbone that is deliberately NOT in this panel
 
 from __future__ import annotations
 
-import random
+import math
 from typing import Any, Dict, List, Tuple
 
 import torch
@@ -68,7 +68,11 @@ class MultiTeacherAnalyzer(TaskAnalyzer):
         w = weights if weights is not None else [1.0] * n
         if len(w) != n:
             raise ValueError("weights must match number of teachers")
-        s = float(sum(w)) or 1.0
+        if any(not math.isfinite(float(x)) or float(x) < 0 for x in w):
+            raise ValueError("teacher weights must be finite and non-negative")
+        s = float(sum(w))
+        if s <= 0:
+            raise ValueError("teacher weights must have positive sum")
         self.register_buffer("_w", torch.tensor([x / s for x in w]), persistent=False)
         self._active = 0  # teacher used for the current step's feature distillation
         self._pinned = False  # when True, accuracy_loss reuses _active (no re-sample)
@@ -115,6 +119,31 @@ class MultiTeacherAnalyzer(TaskAnalyzer):
             l, _ = t.accuracy_loss(x_hat, target)
             total = total + wt * l
         return total, {}
+
+    @property
+    def supports_task_logits(self) -> bool:
+        return all(
+            wt == 0 or teacher.supports_task_logits
+            for wt, teacher in zip(self._w.tolist(), self.teachers)
+        )
+
+    def task_logits(self, x_hat: torch.Tensor) -> list[tuple[float, torch.Tensor]]:
+        """Keep each mean-mode teacher's nonlinear safety loss separate."""
+        if not self.supports_task_logits:
+            raise NotImplementedError("all active teachers need differentiable logits")
+        if self.sampling == "sample":
+            if not self._pinned:
+                self._active = int(torch.multinomial(self._w, 1).item())
+            return self.teachers[self._active].task_logits(x_hat)
+        self._active = 0
+        components = []
+        for wt, teacher in zip(self._w.tolist(), self.teachers):
+            if wt > 0:
+                components.extend(
+                    (wt * inner_wt, logits)
+                    for inner_wt, logits in teacher.task_logits(x_hat)
+                )
+        return components
 
     # -- feature distillation ---------------------------------------------
     def features(self, x: torch.Tensor) -> list:

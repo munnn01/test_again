@@ -25,6 +25,25 @@ class TaskAnalyzer(nn.Module, ABC):
     """
 
     task_name: str = "base"
+    supports_task_logits: bool = False
+
+    def logits(self, x_hat: torch.Tensor) -> torch.Tensor:
+        """Differentiable class logits; optional for non-classification tasks.
+
+        ``predict`` is evaluation-only and may detach its outputs. Training
+        safeguards must use this API so frozen weights still backpropagate to
+        the reconstruction. OD/tracking retain their scalar accuracy losses.
+        """
+        raise NotImplementedError(f"{type(self).__name__} has no class-logit API")
+
+    def task_logits(self, x_hat: torch.Tensor) -> list[tuple[float, torch.Tensor]]:
+        """Weighted, differentiable teacher logits for one training step.
+
+        A panel in mean mode returns separate components, allowing per-example
+        nonlinear regret to be computed BEFORE teacher averaging. A sample
+        panel must be pinned across the raw-anchor and treatment forwards.
+        """
+        return [(1.0, self.logits(x_hat))]
 
     def freeze(self) -> "TaskAnalyzer":
         for p in self.parameters():

@@ -76,6 +76,8 @@ class ActionRecognitionAnalyzer(TaskAnalyzer):
         self.register_buffer("mean", torch.tensor(_MEAN).view(1, 3, 1, 1, 1))
         self.register_buffer("std", torch.tensor(_STD).view(1, 3, 1, 1, 1))
 
+    supports_task_logits = True
+
     # -- input prep --------------------------------------------------------
     def _prep(self, x: torch.Tensor) -> torch.Tensor:
         """[B,C,T,H,W] in [0,1] -> resized to clip_size, Kinetics-normalised."""
@@ -92,11 +94,15 @@ class ActionRecognitionAnalyzer(TaskAnalyzer):
             x = x.permute(0, 2, 1, 3, 4)
         return (x - self.mean) / self.std
 
+    def logits(self, x_hat: torch.Tensor) -> torch.Tensor:
+        """Frozen classifier logits with gradients to the video input."""
+        return self.net(self._prep(x_hat))
+
     # -- training ----------------------------------------------------------
     def accuracy_loss(
         self, x_hat: torch.Tensor, target: torch.Tensor
     ) -> Tuple[torch.Tensor, Dict[str, Any]]:
-        logits = self.net(self._prep(x_hat))
+        logits = self.logits(x_hat)
         loss = F.cross_entropy(logits, target)
         return loss, {"logits": logits.detach()}
 
@@ -117,4 +123,4 @@ class ActionRecognitionAnalyzer(TaskAnalyzer):
     # -- evaluation --------------------------------------------------------
     @torch.no_grad()
     def predict(self, x_hat: torch.Tensor) -> torch.Tensor:
-        return self.net(self._prep(x_hat))  # logits [B, 400]
+        return self.logits(x_hat)  # logits [B, 400]

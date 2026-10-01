@@ -69,6 +69,68 @@ class LossWeights:
     use_task_mask: bool = False  # A2: weight gamma/delta by task saliency (spatial)
 
 
+def classification_regret_terms(
+    logits: torch.Tensor,
+    anchor_logits: torch.Tensor,
+    target: torch.Tensor,
+    *,
+    margin_weight: float = 0.0,
+    kl_weight: float = 0.0,
+    temperature: float = 1.0,
+) -> Dict[str, torch.Tensor]:
+    """Non-cancelling CE regret with correct-anchor margin/KL guards.
+
+    For each example, clamp CE(treatment)-CE(anchor) BEFORE averaging. The
+    margin guard penalizes a decrease in target-vs-best-other logit margin
+    only where the raw-codec teacher is correct. The KL guard preserves the
+    same correct anchor's class distribution, KL(anchor || treatment), at
+    ``temperature`` and scaled by temperature squared. Guards average over
+    the full batch (incorrect anchors contribute zero). The anchor always
+    detaches; treatment logits remain differentiable.
+    """
+    if any(not math.isfinite(v) or v < 0 for v in (margin_weight, kl_weight)):
+        raise ValueError("regret safeguard weights must be finite and non-negative")
+    if not math.isfinite(temperature) or temperature <= 0:
+        raise ValueError("regret temperature must be finite and positive")
+    if logits.ndim != 2 or logits.shape[1] < 2 or logits.shape[0] == 0:
+        raise ValueError("regret logits must have shape [B, classes>=2], B>0")
+    if anchor_logits.shape != logits.shape:
+        raise ValueError("anchor and treatment logits must have the same shape")
+    if target.ndim != 1 or target.shape[0] != logits.shape[0]:
+        raise ValueError("regret target must have shape [B]")
+    anchor = anchor_logits.detach()
+    ce = F.cross_entropy(logits, target, reduction="none")
+    ce_anchor = F.cross_entropy(anchor, target, reduction="none")
+    positive = (ce - ce_anchor).clamp_min(0).mean()
+    correct = (anchor.argmax(dim=1) == target).to(logits.dtype)
+    target_column = target[:, None]
+    other_classes = torch.ones_like(logits, dtype=torch.bool)
+    other_classes.scatter_(1, target_column, False)
+    margin = logits.gather(1, target_column).squeeze(1) - logits.masked_fill(
+        ~other_classes, float("-inf")
+    ).amax(dim=1)
+    anchor_margin = anchor.gather(1, target_column).squeeze(1) - anchor.masked_fill(
+        ~other_classes, float("-inf")
+    ).amax(dim=1)
+    margin_guard = (correct * (anchor_margin - margin).clamp_min(0)).mean()
+    kl_each = F.kl_div(
+        F.log_softmax(logits / temperature, dim=1),
+        F.log_softmax(anchor / temperature, dim=1),
+        log_target=True,
+        reduction="none",
+    ).sum(dim=1).clamp_min(0)
+    kl_guard = (correct * kl_each).mean() * temperature ** 2
+    return {
+        "task_loss": ce.mean(),
+        "anchor_loss": ce_anchor.mean(),
+        "signed_regret": (ce - ce_anchor).mean(),
+        "positive_ce_regret": positive,
+        "margin_guard": margin_guard,
+        "kl_guard": kl_guard,
+        "regret": positive + margin_weight * margin_guard + kl_weight * kl_guard,
+    }
+
+
 def total_variation(x: torch.Tensor) -> torch.Tensor:
     """Mean spatio-TEMPORAL total variation of x. 4D (B,C,H,W) or 5D (B,C,T,H,W).
 
