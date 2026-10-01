@@ -8,6 +8,7 @@ import hashlib
 import io
 import importlib.util
 import json
+import math
 import os
 import re
 import shutil
@@ -49,6 +50,9 @@ def git(tree: Path, *args):
 
 def prepare(args):
     state = load_state()
+    stop = state.get("stop_request", {})
+    if stop.get("create_new_jobs") is False and args.slug not in stop.get("finish_jobs", []):
+        raise PermissionError("user requested stopping after the final authorized batch; no new candidate may be prepared")
     if args.slug in state["jobs"]:
         prior = state["jobs"][args.slug]
         if not getattr(args, "replace_prepared", False) or prior["status"] != "prepared":
@@ -152,6 +156,9 @@ def status_from(output):
 
 def submit(args):
     state = load_state()
+    stop = state.get("stop_request", {})
+    if stop.get("create_new_jobs") is False and args.job not in stop.get("finish_jobs", []):
+        raise PermissionError("user requested stopping after the final authorized batch; no later job may be submitted")
     approval = state.get("external_execution_approval", {})
     if approval.get("status") != "authorized" or args.job not in approval.get("authorized_jobs", []):
         raise PermissionError("Kaggle submission awaits explicit user authorization for this package and destination")
@@ -189,6 +196,19 @@ def submit(args):
 
 
 
+
+def equivalent_json(left, right):
+    """Allow floating point backend roundoff; gate booleans and structure stay exact."""
+    if isinstance(left, dict) and isinstance(right, dict):
+        return left.keys() == right.keys() and all(equivalent_json(left[k], right[k]) for k in left)
+    if isinstance(left, list) and isinstance(right, list):
+        return len(left) == len(right) and all(equivalent_json(a, b) for a, b in zip(left, right))
+    if isinstance(left, bool) or isinstance(right, bool):
+        return type(left) is type(right) and left == right
+    if isinstance(left, (int, float)) and isinstance(right, (int, float)) and (isinstance(left, float) or isinstance(right, float)):
+        return math.isclose(left, right, rel_tol=1e-10, abs_tol=1e-10)
+    return type(left) is type(right) and left == right
+
 def audit_download(job, run):
     """Recompute decisions locally; downloaded summaries alone cannot admit a model."""
     import torch
@@ -211,7 +231,7 @@ def audit_download(job, run):
     for phase in phases:
         scores[phase] = protocol.score(json.loads((run / phase / "results.json").read_text()),
                                        run / phase / "sequence_points.csv", index, job["codec"], phase)
-        if scores[phase] != json.loads((run / phase / "decision.json").read_text()):
+        if not equivalent_json(scores[phase], json.loads((run / phase / "decision.json").read_text())):
             raise ValueError("remote decision disagrees with independent local scoring")
     manifest = json.loads((run / "checkpoint_manifest.json").read_text())
     cfg = manifest["cfg"]
@@ -221,7 +241,7 @@ def audit_download(job, run):
     if hashlib.sha256(payload).hexdigest() != job["payload_sha256"]:
         raise ValueError("local payload changed")
     with zipfile.ZipFile(io.BytesIO(payload)) as archive:
-        registered = yaml.safe_load(archive.read(job["config"]))
+        registered = json.loads(json.dumps(yaml.safe_load(archive.read(job["config"]))))
     for section in ("task", "model", "loss"):
         if cfg[section] != registered[section]:
             raise ValueError(f"checkpoint {section} differs from the candidate")
@@ -243,7 +263,7 @@ def audit_download(job, run):
     if hashlib.sha256(checkpoint.read_bytes()).hexdigest() != manifest["final_sha256"]:
         raise ValueError("checkpoint bytes differ from manifest")
     checkpoint_state = torch.load(checkpoint, map_location="cpu", weights_only=False)
-    if checkpoint_state["cfg"] != cfg or checkpoint_state["task_duals"] != manifest["task_duals"] or checkpoint_state["global_step"] != job["steps"]:
+    if json.loads(json.dumps(checkpoint_state["cfg"])) != cfg or checkpoint_state["task_duals"] != manifest["task_duals"] or checkpoint_state["global_step"] != job["steps"]:
         raise ValueError("checkpoint state differs from manifest")
     if any(float(v) != 0 for v in checkpoint_state["rate_duals"].values()):
         raise ValueError("old rate duals were not reset")
@@ -252,7 +272,7 @@ def audit_download(job, run):
     result = {"stage": job["stage"], "scores": scores,
               "development_pass": scores.get("dev", {}).get("passes", False),
               "goal_complete": job["stage"] == "confirmation" and all(row["passes"] for row in scores.values())}
-    if result != json.loads((run / "summary.json").read_text()):
+    if not equivalent_json(result, json.loads((run / "summary.json").read_text())):
         raise ValueError("remote summary differs from independently audited gates")
     (run / "local_audit.json").write_text(json.dumps(dict(result, local_audit_passed=True), indent=2, sort_keys=True), encoding="utf-8")
     package = ROOT / "results/autonomous_ar" / job["slug"]
@@ -273,6 +293,9 @@ def poll(args):
     state = load_state()
     selected = [state["jobs"][args.job]] if args.job else list(state["jobs"].values())
     for job in selected:
+        if job["status"] == "prepared":
+            print(json.dumps({"handle": job["handle"], "status": "prepared", "gpu_submitted": False}))
+            continue
         if job["status"] == "evaluated":
             print(json.dumps({"handle": job["handle"], "status": "evaluated", "development_pass": job.get("development_pass"), "goal_complete": job.get("goal_complete", False)}))
             continue

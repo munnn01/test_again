@@ -124,3 +124,40 @@ def test_duplicate_prepare_cannot_overwrite_active_package(tmp_path, monkeypatch
     monkeypatch.setattr(RUNNER, "git", lambda *a: pytest.fail("git invoked before duplicate guard"))
     with pytest.raises(ValueError, match="immutable"):
         RUNNER.prepare(argparse.Namespace(slug="test", replace_prepared=True))
+
+
+def test_prepared_job_is_not_polled_as_a_missing_remote_kernel(tmp_path, monkeypatch):
+    install_state(monkeypatch, tmp_path)
+    monkeypatch.setattr(RUNNER, "kaggle", lambda *a, **k: pytest.fail("unsubmitted job must not be polled"))
+    RUNNER.poll(argparse.Namespace(job="test", download=True))
+    assert RUNNER.load_state()["jobs"]["test"]["status"] == "prepared"
+
+
+def test_cross_backend_roundoff_does_not_change_acceptance():
+    a = {"bd_rate_pct": -1.7593811475790422, "passes": False, "n_eval": 208}
+    b = dict(a, bd_rate_pct=-1.7593811475783872)
+    assert RUNNER.equivalent_json(a, b)
+    assert not RUNNER.equivalent_json(a, dict(b, passes=True))
+    assert not RUNNER.equivalent_json(a, dict(b, bd_rate_pct=-1.76))
+    assert not RUNNER.equivalent_json(a, dict(b, n_eval=209))
+    assert not RUNNER.equivalent_json(a, dict(b, missing_field=None))
+
+
+def test_stop_request_prevents_new_candidate_preparation(tmp_path, monkeypatch):
+    install_state(monkeypatch, tmp_path)
+    state = RUNNER.load_state()
+    state["stop_request"] = {"create_new_jobs": False, "finish_jobs": ["final"]}
+    RUNNER.save_state(state)
+    monkeypatch.setattr(RUNNER, "git", lambda *a: pytest.fail("no new candidate after user stop request"))
+    with pytest.raises(PermissionError, match="stopping"):
+        RUNNER.prepare(argparse.Namespace(slug="next"))
+
+
+def test_stop_request_prevents_later_submission_even_if_previously_authorized(tmp_path, monkeypatch):
+    install_state(monkeypatch, tmp_path)
+    state = RUNNER.load_state()
+    state["stop_request"] = {"create_new_jobs": False, "finish_jobs": ["final"]}
+    RUNNER.save_state(state)
+    monkeypatch.setattr(RUNNER, "kaggle", lambda *a, **k: pytest.fail("no later upload after user stop request"))
+    with pytest.raises(PermissionError, match="stopping"):
+        RUNNER.submit(argparse.Namespace(job="test"))
