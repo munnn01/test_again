@@ -1,3 +1,9 @@
 results/codec_search_ar_confirm_1000/*.json text eol=lf
 results/codec_search_ar_confirm_1000/*.tar.gz binary
 kaggle/dual_codec_search_cell.sh text eol=lf
+
+# Preserve bytes used by immutable experiment and evidence SHA256 manifests.
+results/v13_task_regret_screen/** -text whitespace=cr-at-eol
+ops/report_v13_task_regret.py -text whitespace=cr-at-eol
+ops/autonomous_ar/protocol.py -text whitespace=cr-at-eol
+ops/autonomous_ar/__init__.py -text whitespace=cr-at-eol
