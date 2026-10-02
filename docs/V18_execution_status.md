@@ -1,11 +1,11 @@
 # V18 execution status - 2026-10-02
 
-Updated 2026-10-02T20:42:56.516973+07:00 (Asia/Bangkok). Both private free-GPU notebooks have positive version1 API push acknowledgments and manually verified RUNNING status. No V18 BD-rate result is available. No GitHub push, confirmation or promotion occurred.
+Updated 2026-10-02T22:39:33.125269+07:00 (Asia/Bangkok). Both private notebooks completed and passed local audit. A: BD-rate-3.1228%, both task gates pass. B: BD-rate+2.4482%, all three gates fail. Neither reaches -10%; no confirmation or promotion. Full report: `docs/RESULTS_autonomous_ar_v18_2026-10-02.md`.
 
 | Arm | Notebook | Effective rate_weight | Push acknowledged (UTC) | Remote status |
 |---|---|---:|---|---|
-| n15 / A | [v18-ar-calibrated-rate05-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v18-ar-calibrated-rate05-h264-s302001) | 0.5 | 2026-10-02T13:41:31.324486+00:00 | running at 2026-10-02T13:42:51.080835+00:00 |
-| n16 / B | [v18-ar-calibrated-rate1-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v18-ar-calibrated-rate1-h264-s302001) | 1.0 | 2026-10-02T13:41:50.925331+00:00 | running at 2026-10-02T13:42:56.049628+00:00 |
+| n15 / A | [v18-ar-calibrated-rate05-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v18-ar-calibrated-rate05-h264-s302001) | 0.5 | 2026-10-02T13:41:31.324486+00:00 | complete; local audit passed |
+| n16 / B | [v18-ar-calibrated-rate1-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v18-ar-calibrated-rate1-h264-s302001) | 1.0 | 2026-10-02T13:41:50.925331+00:00 | complete; local audit passed |
 
 ## Registered change and readiness
 
@@ -27,7 +27,7 @@ Identical payload SHA256: `b433b4c467f819cd5b5f85cc9735f4dc89fff6defbdadad6289f2
 
 ## Gates and permission scope
 
-Acceptance stays finite BD-rate<=-10%, BD-accuracy>=0 and every QP Top1 gap>=-0.5pp. Terminal source/config/checkpoint/paired-ID/QP/metric evidence must pass independent local audit. Only a passing immutable checkpoint may confirm on reserved802, then full1010 under the same gates. The802 has historical validation exposure but is excluded from this search. No threshold, task backbone, split or encoder setting was changed.
+Acceptance stays finite BD-rate<=-10%, BD-accuracy>=0 and every QP Top1 gap>=-0.5pp. Terminal source/config/checkpoint/paired-ID/QP/metric evidence passed independent local audit. Neither arm passed all development gates. Only a passing immutable checkpoint may confirm on reserved802, then full1010 under the same gates. The802 has historical validation exposure but is excluded from this search. No threshold, task backbone, split or encoder setting was changed.
 
 Only the earlier authorized subsequent private qktttttttttt free-GPU code/config workflow is used. The four sealed V15 packages remain the full baoancut/trnhlng scope. No token/PDF/data/new checkpoint is uploaded. No GitHub push is performed; origin remains https://github.com/munnn01/pre_updated_v2.git, and new commits stay local. No app goal, heartbeat, schedule or automatic result collection was created.
 
