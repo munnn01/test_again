@@ -25,6 +25,7 @@ existing ``codec(x, quality)`` call unchanged.
 
 from __future__ import annotations
 
+import math
 from typing import Dict, List
 
 import torch
@@ -43,6 +44,8 @@ class STECodec(nn.Module):
         quality_to_qp: maps each proxy quality id to the real-codec QP to encode
             at (the inverse of the config's ``train.qp_to_quality``).
         preset: x264/x265 speed preset.
+        calibrate_rate: optionally scale only the rate gradient by detached
+            real/proxy bpp, using one batch-mean ratio and a fixed 1e-8 floor.
     """
 
     def __init__(
@@ -51,8 +54,13 @@ class STECodec(nn.Module):
         codec: str = "h265",
         quality_to_qp: Dict[int, int] | None = None,
         preset: str = "medium",
+        calibrate_rate: bool = False,
     ):
         super().__init__()
+        if not isinstance(calibrate_rate, bool):
+            raise ValueError("STECodec.calibrate_rate must be a bool")
+        self.calibrate_rate = calibrate_rate
+        self.rate_calibration_diagnostics: Dict[str, float] = {}
         if not ffmpeg_available():
             raise RuntimeError("STECodec needs ffmpeg (with libx264/libx265) on PATH")
         self.proxy = proxy
@@ -69,13 +77,53 @@ class STECodec(nn.Module):
 
     def forward(self, x: torch.Tensor, quality: int):
         x_p, bpp_p = self.proxy(x, quality)                       # differentiable
+        if self.calibrate_rate:
+            self.rate_calibration_diagnostics = {}
+            if not torch.is_tensor(bpp_p) or bpp_p.numel() != 1:
+                raise ValueError("STE rate calibration requires scalar proxy_bpp")
+            if not bpp_p.is_floating_point():
+                raise ValueError("STE rate calibration requires floating-point proxy_bpp")
+            proxy_value = float(bpp_p.detach())
+            if not math.isfinite(proxy_value) or proxy_value < 0:
+                raise ValueError(
+                    "STE rate calibration proxy_bpp must be finite and non-negative"
+                )
         sc = StandardCodec(codec=self.codec, qp=self._qp(quality), preset=self.preset)
         with torch.no_grad():
             x_r, bpp_r = sc.compress_decompress(x.detach())       # real ffmpeg
             x_r = x_r.to(x_p.device, x_p.dtype)
         # straight-through: forward value = real codec, backward grad = proxy
         x_hat = x_p + (x_r - x_p).detach()
-        bpp = bpp_p + (x_p.new_tensor(float(bpp_r)) - bpp_p).detach()
+        if self.calibrate_rate:
+            real_value = float(bpp_r)
+            if not math.isfinite(real_value) or real_value < 0:
+                raise ValueError(
+                    "STE rate calibration real_bpp must be finite and non-negative"
+                )
+            real_bpp = bpp_p.new_tensor(real_value)
+            if not bool(torch.isfinite(real_bpp).all()):
+                raise ValueError("STE rate calibration real_bpp is not finite in proxy dtype")
+            # Eq40-inspired adaptation: one ratio for the batch's mean rate.
+            # The scalar is detached. Differentiating real/proxy would cancel
+            # the desired rate gradient. No fitted coefficient or cap is used.
+            scale_value = real_value / max(proxy_value, 1e-8)
+            if not math.isfinite(scale_value) or scale_value < 0:
+                raise ValueError(
+                    "STE rate calibration scale must be finite and non-negative"
+                )
+            scale = bpp_p.new_tensor(scale_value)
+            if not bool(torch.isfinite(scale).all()):
+                raise ValueError("STE rate calibration scale is not finite in proxy dtype")
+            bpp = real_bpp + scale * (bpp_p - bpp_p.detach())
+            self.rate_calibration_diagnostics = {
+                "ste_rate_proxy_bpp": proxy_value,
+                "ste_rate_real_bpp": real_value,
+                "ste_rate_calibration_scale": float(scale),
+                "ste_rate_floor_active": float(proxy_value < 1e-8),
+            }
+        else:
+            # Keep the legacy expression exact when calibration is disabled.
+            bpp = bpp_p + (x_p.new_tensor(float(bpp_r)) - bpp_p).detach()
         return x_hat, bpp
 
     @torch.no_grad()
