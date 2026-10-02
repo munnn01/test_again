@@ -129,6 +129,7 @@ def _build_models(cfg: dict, device: torch.device, role: str = "train"):
             temporal_frames=int(m.get("temporal_frames", 8)),
             strength=float(m.get("strength", 1.0)),
             cond_dim=int(m.get("cond_dim", 1)),
+            residual_filter_sigma=m.get("residual_filter_sigma", 0.0),
         ).to(device)
     elif arch == "additive_attn":
         # Attentive dual-branch additive editor: same spatial/temporal branches
@@ -1494,6 +1495,7 @@ def evaluate(cfg: dict, ckpt_path: str, out_dir: str | None = None) -> dict:
     if isinstance(ckpt_cfg, dict) and isinstance(ckpt_cfg.get("model"), dict):
         arch_keys = ("arch", "temporal_frames", "edit_kind", "gate_area", "gate",
                      "base_ch", "res_scale", "cond_dim", "max_relative_edit",
+                     "residual_filter_sigma",
                      # DCTP-V6 fixed projection knobs
                      "residual_scale", "dct_strength", "dct_threshold",
                      "dct_softness", "dct_block", "dct_band_start",

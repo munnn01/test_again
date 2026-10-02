@@ -28,6 +28,9 @@ Design notes:
 
 from __future__ import annotations
 
+import math
+from numbers import Real
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -38,11 +41,25 @@ class AdditiveCondPreprocessor(nn.Module):
 
     10,371 parameters (9,795 Zhao tree + 576 FiLM). Fully convolutional and
     resolution-agnostic; trains at 128, evaluates at any square size.
+
+    ``residual_filter_sigma`` is a fixed spatial Gaussian standard deviation in
+    pixels for the learned RGB residual only. Zero preserves the exact legacy
+    forward; positive finite values use radius ceil(3*sigma), replicate borders
+    and separable grouped2D convolutions without new checkpoint parameters.
     """
 
     def __init__(self, temporal_frames: int = 8, strength: float = 1.0,
-                 cond_dim: int = 1):
+                 cond_dim: int = 1, residual_filter_sigma: float = 0.0):
         super().__init__()
+        if isinstance(residual_filter_sigma, bool) or not isinstance(residual_filter_sigma, Real):
+            raise ValueError("residual_filter_sigma must be a finite nonnegative real scalar")
+        try:
+            sigma = float(residual_filter_sigma)
+        except (OverflowError, ValueError) as exc:
+            raise ValueError("residual_filter_sigma must be a finite nonnegative real scalar") from exc
+        if not math.isfinite(sigma) or sigma < 0.0:
+            raise ValueError("residual_filter_sigma must be a finite nonnegative real scalar")
+        self.residual_filter_sigma = sigma
         if temporal_frames < 1:
             raise ValueError(f"temporal_frames must be >= 1, got {temporal_frames}")
         self.tframes = int(temporal_frames)
@@ -69,6 +86,31 @@ class AdditiveCondPreprocessor(nn.Module):
         self.to_rgb = nn.Conv2d(16, 3, 3, padding=1)
         nn.init.zeros_(self.to_rgb.weight)
         nn.init.zeros_(self.to_rgb.bias)
+
+    def _filter_residual(self, residual: torch.Tensor) -> torch.Tensor:
+        """Spatial Gaussian on learned RGB edits [B*T,3,H,W], never on source.
+
+        A fixed, normalized separable kernel uses replicate borders and grouped
+        convolutions, preserving channels and frame independence. No learned
+        parameters or persistent buffers are introduced. Sigma0 is an exact
+        bypass, including RNG and checkpoint-key compatibility.
+        """
+        sigma = self.residual_filter_sigma
+        if sigma == 0.0:
+            return residual
+        radius = math.ceil(3.0 * sigma)
+        # Build tiny fixed kernels in float64 so very small finite sigmas do
+        # not underflow to zero during scalar conversion in mixed precision.
+        coords = torch.arange(-radius, radius + 1, device=residual.device, dtype=torch.float64)
+        kernel = torch.exp(-0.5 * (coords / sigma).square())
+        kernel = (kernel / kernel.sum()).to(residual.dtype)
+        channels = residual.shape[1]
+        horizontal = kernel.view(1, 1, 1, -1).expand(channels, 1, 1, -1)
+        vertical = kernel.view(1, 1, -1, 1).expand(channels, 1, -1, 1)
+        residual = F.conv2d(F.pad(residual, (radius, radius, 0, 0), mode="replicate"),
+                            horizontal, groups=channels)
+        return F.conv2d(F.pad(residual, (0, 0, radius, radius), mode="replicate"),
+                        vertical, groups=channels)
 
     def forward(self, x: torch.Tensor, cond: torch.Tensor | None = None,
                 mask: torch.Tensor | None = None) -> torch.Tensor:
@@ -103,5 +145,6 @@ class AdditiveCondPreprocessor(nn.Module):
         gamma, beta = self.film(cond_f).chunk(2, dim=1)            # [B*T,16] each
         fused = fused * (1.0 + gamma[:, :, None, None]) + beta[:, :, None, None]
 
-        out = frames + self.strength * self.to_rgb(fused)
+        residual = self._filter_residual(self.to_rgb(fused))
+        out = frames + self.strength * residual
         return out.clamp(0.0, 1.0).reshape(b, t, c, h, w).permute(0, 2, 1, 3, 4)
