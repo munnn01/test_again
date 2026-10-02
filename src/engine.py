@@ -744,6 +744,16 @@ def _evaluation_codecs(cfg: dict) -> tuple[str, ...]:
     return _codec_names(values, field="eval.codecs")
 
 
+def _distill_anchor_mode(cfg: dict, codec) -> str:
+    """Validate the optional same-real-codec feature target before training."""
+    mode = str(cfg.get("loss", {}).get("distill_anchor", "source"))
+    if mode not in ("source", "raw_codec"):
+        raise ValueError("loss.distill_anchor must be source or raw_codec")
+    if mode == "raw_codec" and not isinstance(codec, STECodec):
+        raise ValueError("loss.distill_anchor=raw_codec requires codec.kind=ste")
+    return mode
+
+
 def _loss_weights(cfg: dict) -> LossWeights:
     """Build every configured loss weight in one auditable place.
 
@@ -786,11 +796,13 @@ def _earlystop_update(val, best, min_delta, no_improve, patience):
 @torch.no_grad()
 def _val_loss(pre, codec, analyzer, loader, weights, qp_list, qp_to_quality,
               cfg, prep_batch, max_batches):
-    """Mean proxy-only validation loss over every configured training QP.
+    """Mean validation loss using the supplied codec over the training QP grid.
 
-    Selecting a checkpoint at one QP can over-specialise the FiLM condition and
-    makes the other rate points look worse.  Average the same objective across
-    the full configured QP grid while keeping the proxy-only path cheap."""
+    The shared fit loop supplies its actual codec (STE stays real in forward).
+    Raw-codec feature anchors require STE and pin the same teacher across CE
+    and both feature arms; omitting that mode preserves existing routing.
+    """
+    raw_distill = _distill_anchor_mode(cfg, codec) == "raw_codec"
     was_training = pre.training
     pre.eval()
     total, nb = 0.0, 0
@@ -807,7 +819,11 @@ def _val_loss(pre, codec, analyzer, loader, weights, qp_list, qp_to_quality,
             )
             # A2: use the SAME spatial mask objective as training and pin the
             # sampled teacher so saliency/loss share one active teacher.
-            if weights.use_task_mask and hasattr(analyzer, "pin_active"):
+            pinned = bool(
+                (weights.use_task_mask or raw_distill)
+                and hasattr(analyzer, "pin_active")
+            )
+            if pinned:
                 analyzer.pin_active()
             try:
                 mask = task_saliency(analyzer, clips, target) if weights.use_task_mask else None
@@ -816,15 +832,20 @@ def _val_loss(pre, codec, analyzer, loader, weights, qp_list, qp_to_quality,
                 else:
                     x_pre = pre(clips, cond, mask=mask)
                 x_hat, bpp = codec(x_pre, q)
+                feature_anchor = None
+                if raw_distill:
+                    feature_anchor, _ = codec.compress_decompress(clips, q)
+                    feature_anchor = feature_anchor.detach()
                 if hasattr(pre, "post_restore"):
                     _codec_name = _ste_codec_name(codec)
                     x_hat = pre.post_restore(x_hat, cond, codec=_codec_name) if hasattr(pre.post_restore, "__call__") and "codec" in pre.post_restore.__code__.co_varnames else pre.post_restore(x_hat, cond)
                 parts = preprocessing_loss(analyzer, clips, x_hat, bpp, target, weights,
                                            x_pre=x_pre, task_mask=mask,
                                            saliency_pred=getattr(pre, "_last_w", None),
-                                           saliency_target=getattr(pre, "_last_w_target", None))
+                                           saliency_target=getattr(pre, "_last_w_target", None),
+                                           feature_anchor=feature_anchor)
             finally:
-                if weights.use_task_mask and hasattr(analyzer, "unpin_active"):
+                if pinned:
                     analyzer.unpin_active()
             qp_losses.append(parts["loss"].item())
         total += sum(qp_losses) / max(len(qp_losses), 1)
@@ -850,6 +871,7 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
     device = next(pre.parameters()).device
     tr = cfg["train"]
     weights = _loss_weights(cfg)
+    raw_distill = _distill_anchor_mode(cfg, codec) == "raw_codec"
     # Optional parameter freeze (bounded probes): keep a pretrained model fixed
     # and train ONLY the parameters whose names start with one of the given
     # prefixes. ``train.freeze_except: [editor, edit_strength]`` unlocks the M2
@@ -1109,7 +1131,7 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
             # drawing a different teacher for either arm would inject a false
             # task-regret signal into the dual update.
             pinned = bool(
-                (weights.use_task_mask or task_regret_constraint["enabled"])
+                (weights.use_task_mask or task_regret_constraint["enabled"] or raw_distill)
                 and hasattr(analyzer, "pin_active")
             )
             if pinned:
@@ -1128,6 +1150,7 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                 need_anchor = bool(
                     rate_constraint["enabled"]
                     or task_regret_constraint["enabled"]
+                    or raw_distill
                 )
                 if need_anchor:
                     anchor_hat, anchor_bpp = codec.compress_decompress(clips, q)
@@ -1208,7 +1231,8 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                                            saliency_target=getattr(pre, "_last_w_target", None),
                                            rate_objective=rate_objective,
                                            task_loss=task_loss_value,
-                                           task_objective=task_objective)
+                                           task_objective=task_objective,
+                                           feature_anchor=(anchor_hat.detach() if raw_distill else None))
                 parts["rate_anchor_bpp"] = anchor_bpp_t.detach()
                 parts["rate_excess_ratio"] = (
                     bpp.detach() / anchor_bpp_t - 1.0

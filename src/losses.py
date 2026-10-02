@@ -208,15 +208,33 @@ def adaptive_dct3d_loss(x: torch.Tensor, tblock: int = 4, sblock: int = 8,
     return (sel * weak).sum() / (blk.shape[0] * n_sel)
 
 
-def feature_distillation(analyzer, x_source: torch.Tensor, x_hat: torch.Tensor) -> torch.Tensor:
-    """Scale-normalised MSE between frozen-analyzer features of source vs recon.
+def feature_distillation(
+    analyzer, x_source: torch.Tensor, x_hat: torch.Tensor,
+    *, require_features: bool = False,
+) -> torch.Tensor:
+    """Scale-normalised MSE to detached frozen-analyzer feature targets.
 
-    Source features are the (detached) target; gradients flow only through the
-    reconstruction path. Returns 0 if the analyzer exposes no features."""
-    feats_src = analyzer.features(x_source)
+    The default source path returns 0 for analyzers without features. An
+    explicitly weighted alternate anchor requires matching nonempty features
+    and computes its targets without building an input or teacher graph.
+    """
+    if require_features:
+        with torch.no_grad():
+            feats_src = analyzer.features(x_source.detach())
+    else:
+        feats_src = analyzer.features(x_source)
     feats_hat = analyzer.features(x_hat)
     if not feats_src:
+        if require_features:
+            raise ValueError(
+                "weighted raw-codec feature distillation requires nonempty analyzer.features"
+            )
         return x_hat.new_zeros(())
+    if require_features and (
+        len(feats_src) != len(feats_hat)
+        or any(fs.shape != fh.shape for fs, fh in zip(feats_src, feats_hat))
+    ):
+        raise ValueError("raw-codec feature anchor and treatment features must match")
     loss = x_hat.new_zeros(())
     for fs, fh in zip(feats_src, feats_hat):
         fs = fs.detach()
@@ -247,6 +265,7 @@ def preprocessing_loss(
     rate_objective: torch.Tensor | None = None,
     task_loss: torch.Tensor | None = None,
     task_objective: torch.Tensor | None = None,
+    feature_anchor: torch.Tensor | None = None,
 ) -> Dict[str, torch.Tensor]:
     """Composite preprocessor loss.
 
@@ -275,7 +294,12 @@ def preprocessing_loss(
     else:
         l_task = task_loss
     l_task_objective = l_task if task_objective is None else task_objective
-    l_dist = feature_distillation(analyzer, x_source, x_hat)
+    # Only semantic features use the alternate anchor. Pixel distortion,
+    # temporal consistency and all other source-based terms keep x_source.
+    l_dist = feature_distillation(
+        analyzer, x_source if feature_anchor is None else feature_anchor, x_hat,
+        require_features=feature_anchor is not None and w.omega > 0,
+    )
     l_temp = temporal_consistency(x_source, x_hat)
     # By default the rate objective is absolute proxy/codec bpp.  Codec-native
     # constrained training supplies the differentiable excess ratio
