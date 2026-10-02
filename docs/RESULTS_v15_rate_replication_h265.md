@@ -8,19 +8,19 @@ Audited jobs: 0/6. Complete: false. Goal complete: false.
 |---|---:|---|---|---|---|---:|---:|---:|
 | qktttttttttt | 302011 | w025 | v15-rate-pair-h265-w025-s302011 | submit_failed | no | -- | -- | -- |
 | qktttttttttt | 302011 | w1 | v15-rate-pair-h265-w1-s302011 | submit_failed | no | -- | -- | -- |
-| baoancut | 302012 | w025 | v15-rate-pair-h265-w025-s302012 | prepared | no | -- | -- | -- |
-| baoancut | 302012 | w1 | v15-rate-pair-h265-w1-s302012 | prepared | no | -- | -- | -- |
-| trnhlng | 302013 | w025 | v15-rate-pair-h265-w025-s302013 | prepared | no | -- | -- | -- |
-| trnhlng | 302013 | w1 | v15-rate-pair-h265-w1-s302013 | prepared | no | -- | -- | -- |
+| baoancut | 302012 | w025 | v15-rate-pair-h265-w025-s302012 | running | no | -- | -- | -- |
+| baoancut | 302012 | w1 | v15-rate-pair-h265-w1-s302012 | running | no | -- | -- | -- |
+| trnhlng | 302013 | w025 | v15-rate-pair-h265-w025-s302013 | running | no | -- | -- | -- |
+| trnhlng | 302013 | w1 | v15-rate-pair-h265-w1-s302013 | running | no | -- | -- | -- |
 
 Aggregates withheld until all six registered jobs have valid audited development evidence.
 
 - v15-rate-pair-h265-w025-s302011: job is submit_failed; terminal audited evaluation required; local audit has not passed.
 - v15-rate-pair-h265-w1-s302011: job is submit_failed; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w025-s302012: job is prepared; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w1-s302012: job is prepared; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w025-s302013: job is prepared; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w1-s302013: job is prepared; terminal audited evaluation required; local audit has not passed.
+- v15-rate-pair-h265-w025-s302012: job is running; terminal audited evaluation required; local audit has not passed.
+- v15-rate-pair-h265-w1-s302012: job is running; terminal audited evaluation required; local audit has not passed.
+- v15-rate-pair-h265-w025-s302013: job is running; terminal audited evaluation required; local audit has not passed.
+- v15-rate-pair-h265-w1-s302013: job is running; terminal audited evaluation required; local audit has not passed.
 
 Uncertainty and scope:
 
