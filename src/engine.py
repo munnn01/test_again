@@ -96,7 +96,19 @@ def _seed_everything(seed: int) -> None:
         torch.cuda.manual_seed_all(seed)
 
 
+def _ste_rate_calibration_enabled(cfg: dict) -> bool:
+    """Validate the optional rate-gradient scale before constructing models."""
+    cc = cfg.get("codec", {})
+    enabled = cc.get("ste_rate_calibration", False)
+    if not isinstance(enabled, bool):
+        raise ValueError("codec.ste_rate_calibration must be a bool")
+    if enabled and cc.get("kind", "compressai") != "ste":
+        raise ValueError("codec.ste_rate_calibration requires codec.kind=ste")
+    return enabled
+
+
 def _build_models(cfg: dict, device: torch.device, role: str = "train"):
+    rate_calibration = _ste_rate_calibration_enabled(cfg)
     m = cfg["model"]
     arch = str(m.get("arch", "unet"))
     if arch == "additive":
@@ -286,6 +298,7 @@ def _build_models(cfg: dict, device: torch.device, role: str = "train"):
             codec=cc.get("ste_codec", "h265"),
             quality_to_qp=q2qp,
             preset=cc.get("ste_preset", "medium"),
+            calibrate_rate=rate_calibration,
         )
         if cc.get("ste_alternate", False):
             # v9 per-codec POST: each training step flips the REAL codec so
@@ -1221,6 +1234,11 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                 parts["task_regret"] = task_regret_t.detach()
                 parts["task_violation"] = bpp.new_tensor(task_violation)
                 parts["task_dual"] = bpp.new_tensor(task_duals[cell])
+                if getattr(codec, "calibrate_rate", False):
+                    parts.update({
+                        key: bpp.new_tensor(value)
+                        for key, value in codec.rate_calibration_diagnostics.items()
+                    })
             finally:
                 if pinned:
                     analyzer.unpin_active()
@@ -1247,6 +1265,14 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
             step += 1
             vals = {k: v.item() for k, v in parts.items()}
             lr_now = opt.param_groups[0]["lr"]
+            rate_postfix = {}
+            if getattr(codec, "calibrate_rate", False):
+                rate_postfix = {
+                    "rscale": f"{vals['ste_rate_calibration_scale']:.4g}",
+                    "rproxy": f"{vals['ste_rate_proxy_bpp']:.4g}",
+                    "rreal": f"{vals['ste_rate_real_bpp']:.4g}",
+                    "rfloor": int(vals["ste_rate_floor_active"]),
+                }
             pbar.set_postfix(loss=f"{vals['loss']:.3f}",
                              task=f"{vals['loss_task']:.3f}",
                              dist=f"{vals['loss_dist']:.3f}",
@@ -1262,7 +1288,8 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                              dct=f"{vals['loss_dct']:.4f}",
                              dct3=f"{vals['loss_dct3d']:.4f}",
                              wd=f"{vals.get('loss_w_distill', 0.0):.4f}",
-                             lr=f"{lr_now:.1e}", qp=qp, codec=codec_name)
+                             lr=f"{lr_now:.1e}", qp=qp, codec=codec_name,
+                             **rate_postfix)
             tracker.log_step(
                 step,
                 {
