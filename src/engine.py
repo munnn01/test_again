@@ -266,6 +266,7 @@ def _build_models(cfg: dict, device: torch.device, role: str = "train"):
             motion=cc.get("motion", False),
             motion_range=cc.get("motion_range", 8),
             motion_block=cc.get("motion_block", 16),
+            rate_model=cc.get("rate_model", "gaussian_power"),
         ).to(device)
     else:
         proxy = CompressAICodec(

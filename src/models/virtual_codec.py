@@ -13,7 +13,7 @@ Pipeline, per clip ``[B,C,T,H,W]`` in [0,1]:
     r  -> block DCT (bs x bs, orthonormal)                   -> coeffs
     coeffs / step(quality)  -> y            (step = quantiser coarseness knob)
     y  -> quantise (add-noise train / round eval)            -> y_hat
-    rate = per-frequency Gaussian entropy of y  (factorised, parameter-free)
+    rate = Gaussian-power default, or opt-in sum log2(1 + abs(y))
     y_hat * step  -> inverse block DCT -> r_hat -> x_hat = pred + r_hat
     chroma upsampled, YCbCr -> RGB                            [5.1, C1]
 
@@ -23,7 +23,7 @@ plus fixed 2x chroma subsampling and coarser chroma quantisation that every
 ``-pix_fmt yuv420p`` encode applies** (see ``models/color.py``). The legacy
 ``rgb`` mode (upgrade-2/3 behaviour) is kept for ablation. Deliberate proxy
 corner (ponytail):
-  * parameter-free Gaussian rate instead of a *trained* Balle factorised prior,
+  * parameter-free rate estimates instead of a *trained* Balle factorised prior,
     so the codec stays frozen and the optimiser still touches only the
     preprocessor. Swap in a trained EntropyBottleneck if the rate proves coarse.
 The honest eval bitrate always comes from real x264/x265 in engine.py; this
@@ -76,6 +76,12 @@ class VirtualCodec(nn.Module):
             (yuv420 only). The H.26x chroma QP offset reaches ~+6 QP (~2x step)
             near QP 50 and is smaller at high rate; 2.0 is the mid-range
             operating approximation.
+        rate_model: "gaussian_power" preserves the original per-frequency
+            Gaussian-power estimate exactly. "log_coeff" sums
+            log2(1 + abs(coeff)/step) over individual coefficients, adapted
+            from Sandwiched Compression, author-hosted 2024 20-page
+            version, supplementary Eq.39 on physical PDF p17.
+            This changes estimated bits only, not quantisation or prediction.
     """
 
     def __init__(
@@ -91,8 +97,12 @@ class VirtualCodec(nn.Module):
         motion: bool = False,
         motion_range: int = 8,
         motion_block: int = 16,
+        rate_model: str = "gaussian_power",
     ):
         super().__init__()
+        if rate_model not in ("gaussian_power", "log_coeff"):
+            raise ValueError(f"rate_model must be 'gaussian_power' or 'log_coeff', got {rate_model!r}")
+        self.rate_model = rate_model
         if isinstance(qualities, int):
             qualities = (qualities,)
         self.qualities = list(qualities)
@@ -221,6 +231,11 @@ class VirtualCodec(nn.Module):
                 y_hat = noise_q
         else:
             y_hat = torch.round(y)
+        if self.rate_model == "log_coeff":
+            # Smooth count (author-hosted 2024, suppl. Eq.39 p17): unquantised
+            # scaled coefficients, so rate gradients need no rounding/noise.
+            # Base 2 gives an explicit bit-cost scale; no calibration here.
+            return y_hat, (torch.log1p(y.abs()) / math.log(2.0)).sum()
         # bits/coeff = rate of a Gaussian source at SNR = signal power / quantiser
         # noise power (uniform step noise, var 1/12): R = 0.5*log2(1 + 12*E[y^2]).
         # Goes to 0 as a coarse step drives the signal below the quantiser -- no
