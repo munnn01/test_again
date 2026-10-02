@@ -45,7 +45,7 @@ def cohort():
                                    "bd_rate_pct": bd_rate, "bd_accuracy_pp": bd_accuracy,
                                    "worst_top1_gap_pp": worst,
                                    "passes": bd_rate <= -10 and bd_accuracy >= 0 and worst >= -0.5}},
-                "checkpoint": {"global_step": 1000, "cfg": {"loss": {"task_regret_constraint": {
+                "checkpoint": {"global_step": 1000, "cfg": {"seed": seed, "codec": {"ste_codec": "h265"}, "loss": {"task_regret_constraint": {
                     "enabled": True, "rate_weight": config["rate_weight"],
                     "per_codec": {"h265": {"rate_weight": config["rate_weight"]}},
                 }}}},
@@ -204,3 +204,44 @@ def test_checkpoint_step_mismatch_rejects(cohort):
     _first_job(cohort)["checkpoint"]["global_step"] = 999
     with pytest.raises(ValueError, match="global_step"):
         REPORT.build_report(*cohort)
+
+
+@pytest.mark.parametrize("field", ["enabled", "ste_codec", "seed"])
+def test_missing_checkpoint_protocol_field_withholds_count_and_aggregate(cohort, field):
+    cfg = _first_job(cohort)["checkpoint"]["cfg"]
+    if field == "enabled":
+        del cfg["loss"]["task_regret_constraint"][field]
+    elif field == "ste_codec":
+        del cfg["codec"][field]
+    else:
+        del cfg[field]
+    report = REPORT.build_report(*cohort)
+    assert not report["complete"] and report["aggregates"] is None
+    assert report["audited_jobs"] == 5 and len(report["rows"]) == 6
+    assert field in report["issues"][0]["issues"][0]
+    assert report["rows"][1]["metrics"] is None
+
+
+@pytest.mark.parametrize("field,value", [
+    ("enabled", False), ("enabled", 1), ("enabled", None),
+    ("primal_mode", "positive_part"), ("primal_mode", "unknown"), ("primal_mode", None),
+    ("ste_codec", "h264"), ("seed", 302099), ("seed", 302011.0),
+])
+def test_mismatched_checkpoint_protocol_field_rejects(cohort, field, value):
+    cfg = _first_job(cohort)["checkpoint"]["cfg"]
+    if field in ("enabled", "primal_mode"):
+        cfg["loss"]["task_regret_constraint"][field] = value
+    elif field == "ste_codec":
+        cfg["codec"][field] = value
+    else:
+        cfg[field] = value
+    with pytest.raises(ValueError, match=field):
+        REPORT.build_report(*cohort)
+
+
+def test_explicit_signed_matches_registered_default(cohort):
+    default = REPORT.build_report(*cohort)
+    cfg = _first_job(cohort)["checkpoint"]["cfg"]
+    cfg["loss"]["task_regret_constraint"]["primal_mode"] = "signed"
+    explicit = REPORT.build_report(*cohort)
+    assert explicit["complete"] and explicit["aggregates"] == default["aggregates"]
