@@ -1,25 +1,26 @@
 # H265 rate-weight multi-account execution receipt
 
-Recorded 2026-10-02T13:09:07.866317+07:00 (Asia/Bangkok). Four H265 jobs have completed and passed local
-artifact audit, but failed development acceptance. The two originally queued
-qktttttttttt jobs are now positively acknowledged and API-verified running.
+Recorded 2026-10-02T14:13:51.437659+07:00 (Asia/Bangkok). All six original private notebooks have
+completed and passed independent local artifact audit. None passes development.
+Three paired seed/account blocks are complete; no replacement or missing run.
 
 | Account | Seed | w025 | w1 |
 |---|---:|---|---|
-| qktttttttttt | 302011 | [running](https://www.kaggle.com/code/qktttttttttt/v15-rate-pair-h265-w025-s302011) | [running](https://www.kaggle.com/code/qktttttttttt/v15-rate-pair-h265-w1-s302011) |
+| qktttttttttt | 302011 | [evaluated](https://www.kaggle.com/code/qktttttttttt/v15-rate-pair-h265-w025-s302011) | [evaluated](https://www.kaggle.com/code/qktttttttttt/v15-rate-pair-h265-w1-s302011) |
 | baoancut | 302012 | [evaluated](https://www.kaggle.com/code/baoancut/v15-rate-pair-h265-w025-s302012) | [evaluated](https://www.kaggle.com/code/baoancut/v15-rate-pair-h265-w1-s302012) |
 | trnhlng | 302013 | [evaluated](https://www.kaggle.com/code/trnhlng/v15-rate-pair-h265-w025-s302013) | [evaluated](https://www.kaggle.com/code/trnhlng/v15-rate-pair-h265-w1-s302013) |
 
-All six original SHA-sealed payloads are retained. The earlier additional-
-account egress rejection was resolved by explicit human approval of those four
-packages; its record is preserved. No token/data/checkpoint uploads. The qk pair
-was submitted only after its two H264 jobs completed and freed its GPU slots.
+Original SHA-sealed payloads are retained. Explicit human approval resolved the
+earlier additional-account egress hold; its history is preserved. The qk pair
+ran after its two H264 jobs completed. No token/data/checkpoint uploads.
 
-H264 rate_weight1: audited BD-rate +2.2677%; positive-part: +2.6945%; neither
-passes. H265 aggregate inference remains withheld until the final pair is audited.
-For full numeric findings see docs/RESULTS_autonomous_ar_v15_2026-10-02.md.
+H265 means: w025 BD-rate +4.8746%; w1 +2.6563%.
+Paired BD-rate delta -2.2183pp,95% CI[-6.6965,+2.2598]pp.
+Registered support criterion fails; all w1 QP30 guards fail. Representative
+seed302011 does not advance. No confirmation or new GPU run was created in this
+result check. Full findings: docs/RESULTS_autonomous_ar_v15_2026-10-02.md.
 
 No training/scoring code changed during collection. The preceding60 CPU checks
-remain applicable; artifact/source/config/steps/SHA and all point-level gates
-were independently checked for the six completed runs. No candidate is promoted.
+remain applicable. Artifacts/source/cfg/steps/SHA and every point-level gate were
+independently audited for all eight V15 jobs. No M_best promotion.
 No new goal, recurring automation or scheduled check was created.

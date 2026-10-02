@@ -2,21 +2,35 @@
 
 H.265; source `a3580b32e1554071811888238ea249ce9ae26e7b32392a2d975e4bd6cd0a9c8e`; 1000 fresh steps per run.
 
-Audited jobs: 4/6. Complete: false. Goal complete: false.
+Audited jobs: 6/6. Complete: true. Goal complete: false.
 
 | Account | Seed | Arm | Job | Status | Counted | BD-rate (%) | BD-accuracy (pp) | Worst-QP Top-1 gap (pp) |
 |---|---:|---|---|---|---|---:|---:|---:|
-| qktttttttttt | 302011 | w025 | v15-rate-pair-h265-w025-s302011 | running | no | -- | -- | -- |
-| qktttttttttt | 302011 | w1 | v15-rate-pair-h265-w1-s302011 | running | no | -- | -- | -- |
+| qktttttttttt | 302011 | w025 | v15-rate-pair-h265-w025-s302011 | evaluated | yes | +3.1113 | -1.0083 | -0.4808 |
+| qktttttttttt | 302011 | w1 | v15-rate-pair-h265-w1-s302011 | evaluated | yes | +2.8697 | -0.6064 | -1.4423 |
 | baoancut | 302012 | w025 | v15-rate-pair-h265-w025-s302012 | evaluated | yes | +7.4565 | -3.5988 | -0.4808 |
 | baoancut | 302012 | w1 | v15-rate-pair-h265-w1-s302012 | evaluated | yes | +3.6851 | -2.5520 | -0.9615 |
 | trnhlng | 302013 | w025 | v15-rate-pair-h265-w025-s302013 | evaluated | yes | +4.0560 | -1.1715 | +0.0000 |
 | trnhlng | 302013 | w1 | v15-rate-pair-h265-w1-s302013 | evaluated | yes | +1.4139 | -1.1445 | -0.9615 |
 
-Aggregates withheld until all six registered jobs have valid audited development evidence.
+| Arm | Metric | Mean | Sample SD |
+|---|---|---:|---:|
+| w025 | bd_rate_pct | +4.8746 | 2.2854 |
+| w025 | bd_accuracy_pp | -1.9262 | 1.4508 |
+| w025 | worst_top1_gap_pp | -0.3205 | 0.2776 |
+| w1 | bd_rate_pct | +2.6563 | 1.1506 |
+| w1 | bd_accuracy_pp | -1.4343 | 1.0046 |
+| w1 | worst_top1_gap_pp | -1.1218 | 0.2776 |
 
-- v15-rate-pair-h265-w025-s302011: job is running; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w1-s302011: job is running; terminal audited evaluation required; local audit has not passed.
+Paired contrast is w1 minus w025 within each seed/account block (n=3, df=2).
+
+| Metric | Mean paired delta | Sample SD | 95% Student t CI |
+|---|---:|---:|---|
+| bd_rate_pct | -2.2183 | 1.8027 | [-6.6965, +2.2598] |
+| bd_accuracy_pp | +0.4919 | 0.5158 | [-0.7895, +1.7733] |
+| worst_top1_gap_pp | -0.8013 | 0.2776 | [-1.4908, -0.1118] |
+
+Negative BD-rate delta favors w1; positive accuracy or Top-1-gap delta favors w1.
 
 Uncertainty and scope:
 
