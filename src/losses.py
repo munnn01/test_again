@@ -267,9 +267,9 @@ def preprocessing_loss(
     # A constrained objective may need the same frozen-teacher task loss both
     # for a dual update and for the primal gradient.  Accepting a precomputed
     # value prevents a second analyzer forward (and, for sampled ensembles, a
-    # potentially different teacher).  ``task_objective`` may be an
-    # anchor-relative regret; it differs from ``l_task`` only by detached
-    # constants, but keeping it explicit makes the optimized quantity auditable.
+    # potentially different teacher). ``task_objective`` may be signed
+    # anchor-relative regret or its positive part; keeping it explicit makes
+    # the optimized quantity auditable without changing the task diagnostic.
     if task_loss is None:
         l_task, _ = analyzer.accuracy_loss(x_hat, target)
     else:

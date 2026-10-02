@@ -643,7 +643,12 @@ def _task_regret_constraint_settings(
         "mu_init": float(raw.get("mu_init", 0.0)),
         "mu_max": float(raw.get("mu_max", 10.0)),
         "rate_weight": float(raw.get("rate_weight", 1.0)),
+        "primal_mode": str(raw.get("primal_mode", "signed")),
     }
+    if settings["primal_mode"] not in ("signed", "positive_part"):
+        raise ValueError(
+            "task_regret_constraint.primal_mode must be signed or positive_part"
+        )
     numeric = [
         settings[key]
         for key in ("epsilon", "dual_lr", "mu_init", "mu_max", "rate_weight")
@@ -702,6 +707,24 @@ def _task_regret_constraint_settings(
         f"{codec}:{qp}" for codec in active_codecs for qp in qp_list
     ]
     return settings
+
+
+def _task_regret_primal_objective(
+    signed_violation: torch.Tensor, mode: str = "signed"
+) -> torch.Tensor:
+    """Transform only the primal term; diagnostics and duals stay signed.
+
+    The optional positive part stops rewarding additional task confidence
+    once batch-mean regret is within its budget. It preserves the mean
+    constraint and therefore does not prevent per-example cancellation.
+    """
+    if mode == "signed":
+        return signed_violation
+    if mode == "positive_part":
+        return signed_violation.relu()
+    raise ValueError(
+        "task_regret_constraint.primal_mode must be signed or positive_part"
+    )
 
 
 def _codec_task_regret_constraint(settings: dict, codec: str) -> dict:
@@ -1041,7 +1064,8 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
             f"codecs={','.join(task_regret_constraint['codecs'])} "
             f"per_codec={codec_settings_log} "
             f"mu_init={task_regret_constraint['mu_init']:.4g} "
-            f"mu_max={task_regret_constraint['mu_max']:.4g}",
+            f"mu_max={task_regret_constraint['mu_max']:.4g} "
+            f"primal_mode={task_regret_constraint['primal_mode']}",
             flush=True,
         )
     tracker = make_tracker(Path(cfg.get("out_dir", "outputs")),
@@ -1164,6 +1188,11 @@ def _fit(cfg, pre, codec, analyzer, train_loader, val_loader, prep_batch,
                             task_duals[cell]
                             + codec_task["dual_lr"] * task_violation,
                         ),
+                    )
+                    # Rectify only after recording signed regret and updating
+                    # its codec/QP dual: feasible regret must still lower mu.
+                    task_objective = _task_regret_primal_objective(
+                        task_objective, task_regret_constraint["primal_mode"]
                     )
                     # Reverse CRC-V5's constrained direction: rate is now the
                     # fixed primal objective and task regret owns the dual.
