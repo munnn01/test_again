@@ -1,14 +1,15 @@
 # V16 execution status
 
-Last manually verified: 2026-10-02T14:53:41+07:00 (Asia/Bangkok).
+Latest result audit: 2026-10-02T16:49:49+07:00 (Asia/Bangkok).
 
-Both private free-GPU H.264 notebooks are running. API push acknowledgment was positive for version1 of each; remote status was subsequently verified as running. No V16 development score or final checkpoint audit is available yet. The -10% objective remains unmet; neither confirmation802 nor full1010 has been evaluated in this round.
+Both private free-GPU H.264 notebooks completed and passed independent local integrity/metric audits. Neither passes development acceptance. No candidate advances to802/full1010 confirmation; the -10% objective remains unmet.
 
-| Node | Intervention | Commit | Remote state |
-|---|---|---|---|
-| n11 | Pixel MSE mu10->0 only | `49c1dd2b9c17d5555b758fac0083f581c720e73f` | [running](https://www.kaggle.com/code/qktttttttttt/v16-ar-pixel-release-h264-s302001) |
-| n12 | Pixel MSE0 plus raw-codec feature weight0.5 | `fa84dbd0e7782dfaf384ac2f872b2915405d1caa` | [running](https://www.kaggle.com/code/qktttttttttt/v16-ar-semantic-anchor-h264-s302001) |
+| Node | Intervention | BD-rate (%) | BD-accuracy (pp) | Worst QP gap (pp) | Remote state |
+|---|---|---:|---:|---:|---|
+| n11 | Pixel MSE mu10->0 only | +6.3309 | -2.6381 | -2.8846 | [completed / locally audited](https://www.kaggle.com/code/qktttttttttt/v16-ar-pixel-release-h264-s302001) |
+| n12 | Pixel MSE0 plus raw-codec feature weight0.5 | +4.8004 | -1.8241 | -2.8846 | [completed / locally audited](https://www.kaggle.com/code/qktttttttttt/v16-ar-semantic-anchor-h264-s302001) |
 
+Full results: [RESULTS_autonomous_ar_v16_2026-10-02.md](RESULTS_autonomous_ar_v16_2026-10-02.md). Original evidence is archived under results/autonomous_ar for both jobs.
 ## Readiness and locked controls
 
 n11:28 parent hinge/task-regret/CRC CPU tests passed. n12:44 focused CPU tests and the existing loss self-check passed; coordinator independently reran all16 substantive new semantic-anchor tests. These verify gradients, detached targets, same codec/QP raw reuse, coherent pinned teacher, exception cleanup, source-default compatibility and video/image feature tensor support. The actual OD feature adapter remains empty; no joint OD/AR performance claim is made.
@@ -26,6 +27,6 @@ Both jobs load the same audited source step500, SHA `ebee0a43e8a7cb80057972ac343
 
 Current jobs use only private qktttttttttt under the user-approved subsequent optimization workflow and current resume. The four previously authorized V15 packages on baoancut/trnhlng remain the complete extra-account scope. Only code/configuration plus accompanying docs/tests were uploaded; no token/data/new checkpoint was uploaded. No goal, heartbeat or recurring check was created.
 
-A terminal run must pass the existing local audit of source/config/checkpoint/208 paired IDs/QPs/metrics before a score enters the tree. Advancement requires finite BD-rate<=-10%, BD-accuracy>=0 and every QP Top-1 gap>=-0.5pp. Only a passing immutable checkpoint proceeds to reserved802 and full1010 under the same gates. Exploration remains on isolated branches; no training change has been promoted.
+Both terminal runs passed the existing local audit of source/config/checkpoint/208 paired IDs/QPs/metrics and were entered in the tree as executed. Neither passes development acceptance. Advancement requires finite BD-rate<=-10%, BD-accuracy>=0 and every QP Top-1 gap>=-0.5pp. Only a passing immutable checkpoint proceeds to reserved802 and full1010 under the same gates. Exploration remains on isolated branches; no training change has been promoted.
 
 Preregistration: `docs/RUN_DESIGN_autonomous_ar_v16.md`. Sealed preflight: `ops/autonomous_ar/cohorts/v16_pixel_semantic_h264_20261002_preflight.json`. Candidate-specific source/config/design/tests remain in `outputs/autonomous_ar/worktrees/pixel-release` and `outputs/autonomous_ar/worktrees/semantic-anchor`.
