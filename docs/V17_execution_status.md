@@ -1,11 +1,11 @@
 # V17 execution status - 2026-10-02
 
-Updated 2026-10-02T10:46:01.830380+00:00. Both notebooks have a positive version1 push acknowledgment and a manually verified remote running status. No measured development BD-rate is available; no confirmation or promotion has occurred.
+Updated 2026-10-02T18:37:16.030067+07:00 (Asia/Bangkok). Both notebooks completed and passed the independent local audit. A BD-rate-0.0600%; B-1.7738%; both pass task gates and fail the -10% rate gate. No confirmation or promotion occurred. Full report: `docs/RESULTS_autonomous_ar_v17_2026-10-02.md`.
 
 | Arm | Notebook | Parsed config delta from n9 | Push acknowledged at (UTC) | Remote status |
 |---|---|---|---|---|
-| A / n13 | [v17-ar-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-log-rate-h264-s302001) | add codec.rate_model=log_coeff | 2026-10-02T10:24:27.019571+00:00 | running at 2026-10-02T10:46:00.162538+00:00 |
-| B / n14 | [v17-ar-calibrated-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-calibrated-log-rate-h264-s302001) | add codec.rate_model=log_coeff; codec.ste_rate_calibration=true | 2026-10-02T10:24:48.335297+00:00 | running at 2026-10-02T10:46:01.830380+00:00 |
+| A / n13 | [v17-ar-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-log-rate-h264-s302001) | add codec.rate_model=log_coeff | 2026-10-02T10:24:27.019571+00:00 | complete; local audit passed |
+| B / n14 | [v17-ar-calibrated-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-calibrated-log-rate-h264-s302001) | add codec.rate_model=log_coeff; codec.ste_rate_calibration=true | 2026-10-02T10:24:48.335297+00:00 | complete; local audit passed |
 
 ## Shared implementation and readiness
 
@@ -27,7 +27,7 @@ Common payload SHA256: `765475198e8b796091cd607704f2c9be7db42d4330252e9e3a779170
 
 The source remains step500 SHA ebee0a43e8a7cb80057972ac34330f1b2f2154b4075786c905d55b07f59dc89a. Both use seed302001,1000 fresh steps, batch2/LR1e-5, balanced QPs30/35/40/45/50, additive_cond cond_dim3, real H264 medium, pixel MSE10, DCT10, task-regret positive-part with epsilon0/init10/cap100/LR0.02 and rate_weight0.25. Final-last only; same development208 IDs, held-out r2plus1d_18, evaluator and scorer.
 
-Acceptance still requires finite BD-rate<=-10%, BD-accuracy>=0 and every QP Top1 gap>=-0.5pp. Terminal evidence must pass the existing independent source/config/checkpoint/paired-ID/QP/metric audit. A development-passing immutable checkpoint alone may proceed to reserved802 and full1010 under the same gates. The802 complement has historical validation exposure but remains excluded from this search. Neither CPU tests nor a running job supplies acceptance evidence.
+Acceptance still requires finite BD-rate<=-10%, BD-accuracy>=0 and every QP Top1 gap>=-0.5pp. Terminal evidence passed the existing independent source/config/checkpoint/paired-ID/QP/metric audit. Neither arm passed all development gates; no reserved802 or full1010 evaluation was launched. A development-passing immutable checkpoint alone may proceed to reserved802 and full1010 under the same gates. The802 complement has historical validation exposure but remains excluded from this search. Neither CPU tests nor a running job supplies acceptance evidence.
 
 Previous V16 screens are complete and failed: pixel release BD-rate+6.3309%, semantic anchor+4.8004%; neither advanced. Literature triage/review prompted the current proxy interventions while retaining the original MSE. See `docs/RESULTS_autonomous_ar_v16_2026-10-02.md`.
 
