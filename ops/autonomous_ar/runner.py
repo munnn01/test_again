@@ -60,8 +60,10 @@ def prepare(args):
         state.setdefault("preparation_history", []).append(dict(prior, retired_reason="local preflight repair before submission"))
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", args.slug):
         raise ValueError("invalid slug")
-    if args.account not in ("qktttttttttt", "baoancut"):
-        raise ValueError("account is outside the current authorized allocation")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", args.account):
+        raise ValueError("invalid Kaggle account")
+    if args.account not in state.get("external_execution_approval", {}).get("accounts", []):
+        raise PermissionError("account is outside the current authorized allocation")
     if not re.fullmatch(r"configs/[a-z0-9_]+\.yaml", args.config):
         raise ValueError("config must be a simple configs/*.yaml path")
     ref = git(args.tree, "rev-parse", "--verify", f"{args.ref}^{{commit}}").decode().strip()
@@ -163,6 +165,8 @@ def submit(args):
     if approval.get("status") != "authorized" or args.job not in approval.get("authorized_jobs", []):
         raise PermissionError("Kaggle submission awaits explicit user authorization for this package and destination")
     job = state["jobs"][args.job]
+    if job["account"] not in approval.get("accounts", []):
+        raise PermissionError("job destination account is not authorized")
     push = Path(job["push_dir"])
     for filename, key in (("notebook.ipynb", "notebook_sha256"), ("kernel-metadata.json", "metadata_sha256")):
         if hashlib.sha256((push / filename).read_bytes()).hexdigest() != job[key]:
@@ -186,13 +190,23 @@ def submit(args):
         print(json.dumps({"handle": job["handle"], "status": status, "duplicate_push_avoided": True}))
         return
     rc, output = kaggle(job["account"], ["kernels", "push", "-p", job["push_dir"], "--accelerator", "NvidiaTeslaT4"], timeout=90)
-    job["status"] = "submitted" if rc == 0 else "submit_failed"
+    # Kaggle CLI can exit0 after printing a backend push error (e.g. GPU limit).
+    # Require its positive push acknowledgement before recording a submission.
+    acknowledged = (rc == 0
+                    and re.search(r"Kernel version(?: \d+)? successfully pushed\.", output) is not None
+                    and "Kernel push error:" not in output)
+    job["status"] = "submitted" if acknowledged else "submit_failed"
     job["submit_message"] = output[-2000:]
-    job["submitted_at"] = now()
+    job["submit_returncode"] = rc
+    job["api_push_acknowledged"] = acknowledged
+    job["submit_attempted_at"] = now()
+    if acknowledged:
+        job["submitted_at"] = job["submit_attempted_at"]
     save_state(state)
-    print(json.dumps({"handle": job["handle"], "rc": rc, "status": job["status"], "message": output[-1200:]}))
-    if rc:
-        raise SystemExit(rc)
+    print(json.dumps({"handle": job["handle"], "rc": rc, "status": job["status"],
+                      "api_push_acknowledged": acknowledged, "message": output[-1200:]}))
+    if not acknowledged:
+        raise SystemExit(rc or 1)
 
 
 
@@ -333,7 +347,7 @@ def main():
     p.add_argument("--tree", type=Path, required=True)
     p.add_argument("--ref", required=True)
     p.add_argument("--config", required=True)
-    p.add_argument("--account", choices=("qktttttttttt", "baoancut"), required=True)
+    p.add_argument("--account", required=True, help="Account must be explicitly allocated in state.json")
     p.add_argument("--codec", choices=("h264", "h265"), required=True)
     p.add_argument("--slug", required=True)
     p.add_argument("--seed", type=int, required=True)

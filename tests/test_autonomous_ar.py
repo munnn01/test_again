@@ -77,7 +77,7 @@ def install_state(monkeypatch, tmp_path, authorized=True):
     sha = hashlib.sha256(b"{}").hexdigest()
     job = {"handle": "qktttttttttt/test", "account": "qktttttttttt", "status": "prepared", "push_dir": str(push),
            "notebook_sha256": sha, "metadata_sha256": sha}
-    state = {"jobs": {"test": job}, "external_execution_approval": {"status": "authorized" if authorized else "pending_user", "authorized_jobs": ["test"]}}
+    state = {"jobs": {"test": job}, "external_execution_approval": {"status": "authorized" if authorized else "pending_user", "authorized_jobs": ["test"], "accounts": ["qktttttttttt"]}}
     RUNNER.save_state(state)
     return state, push
 
@@ -161,3 +161,53 @@ def test_stop_request_prevents_later_submission_even_if_previously_authorized(tm
     monkeypatch.setattr(RUNNER, "kaggle", lambda *a, **k: pytest.fail("no later upload after user stop request"))
     with pytest.raises(PermissionError, match="stopping"):
         RUNNER.submit(argparse.Namespace(job="test"))
+
+
+def test_unallocated_account_cannot_prepare_package(tmp_path, monkeypatch):
+    install_state(monkeypatch, tmp_path)
+    monkeypatch.setattr(RUNNER, "git", lambda *a: pytest.fail("unallocated destination accessed git"))
+    with pytest.raises(PermissionError, match="authorized allocation"):
+        RUNNER.prepare(argparse.Namespace(slug="new", account="trnhlng"))
+
+
+def test_job_approval_cannot_authorize_a_different_account(tmp_path, monkeypatch):
+    install_state(monkeypatch, tmp_path)
+    state = RUNNER.load_state()
+    state["jobs"]["test"]["account"] = "trnhlng"
+    RUNNER.save_state(state)
+    monkeypatch.setattr(RUNNER, "kaggle", lambda *a, **k: pytest.fail("unapproved destination received network call"))
+    with pytest.raises(PermissionError, match="destination account"):
+        RUNNER.submit(argparse.Namespace(job="test"))
+
+
+@pytest.mark.parametrize("rc,message", [
+    (0, "Kernel push error: Maximum batch GPU session count of 2 reached."),
+    (0, ""),
+    (0, "unrecognized response"),
+    (1, "Kernel version 1 successfully pushed."),
+])
+def test_push_without_positive_acknowledgement_is_not_a_submission(tmp_path, monkeypatch, rc, message):
+    install_state(monkeypatch, tmp_path)
+    def api(account, args, **kwargs):
+        return (1, "404 not found") if args[1] == "status" else (rc, message)
+    monkeypatch.setattr(RUNNER, "kaggle", api)
+    with pytest.raises(SystemExit) as error:
+        RUNNER.submit(argparse.Namespace(job="test"))
+    assert error.value.code != 0
+    job = RUNNER.load_state()["jobs"]["test"]
+    assert job["status"] == "submit_failed"
+    assert job["api_push_acknowledged"] is False
+    assert job["submit_returncode"] == rc
+    assert "submitted_at" not in job
+
+
+def test_positive_push_acknowledgement_records_submission(tmp_path, monkeypatch):
+    install_state(monkeypatch, tmp_path)
+    def api(account, args, **kwargs):
+        return (1, "404 not found") if args[1] == "status" else (0, "Kernel version 1 successfully pushed. Please check progress.")
+    monkeypatch.setattr(RUNNER, "kaggle", api)
+    RUNNER.submit(argparse.Namespace(job="test"))
+    job = RUNNER.load_state()["jobs"]["test"]
+    assert job["status"] == "submitted"
+    assert job["api_push_acknowledged"] is True
+    assert job["submitted_at"] == job["submit_attempted_at"]
