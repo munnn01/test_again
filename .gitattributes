@@ -8,3 +8,6 @@ ops/report_v13_task_regret.py -text whitespace=cr-at-eol
 ops/autonomous_ar/protocol.py -text whitespace=cr-at-eol
 ops/autonomous_ar/__init__.py -text whitespace=cr-at-eol
 results/autonomous_ar/** -text whitespace=cr-at-eol
+
+# Original evaluation logs retain progress-bar whitespace as evidence.
+results/autonomous_ar/**/eval.log -text -whitespace

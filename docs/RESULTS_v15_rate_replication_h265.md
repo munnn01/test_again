@@ -2,25 +2,21 @@
 
 H.265; source `a3580b32e1554071811888238ea249ce9ae26e7b32392a2d975e4bd6cd0a9c8e`; 1000 fresh steps per run.
 
-Audited jobs: 0/6. Complete: false. Goal complete: false.
+Audited jobs: 4/6. Complete: false. Goal complete: false.
 
 | Account | Seed | Arm | Job | Status | Counted | BD-rate (%) | BD-accuracy (pp) | Worst-QP Top-1 gap (pp) |
 |---|---:|---|---|---|---|---:|---:|---:|
-| qktttttttttt | 302011 | w025 | v15-rate-pair-h265-w025-s302011 | submit_failed | no | -- | -- | -- |
-| qktttttttttt | 302011 | w1 | v15-rate-pair-h265-w1-s302011 | submit_failed | no | -- | -- | -- |
-| baoancut | 302012 | w025 | v15-rate-pair-h265-w025-s302012 | running | no | -- | -- | -- |
-| baoancut | 302012 | w1 | v15-rate-pair-h265-w1-s302012 | running | no | -- | -- | -- |
-| trnhlng | 302013 | w025 | v15-rate-pair-h265-w025-s302013 | running | no | -- | -- | -- |
-| trnhlng | 302013 | w1 | v15-rate-pair-h265-w1-s302013 | running | no | -- | -- | -- |
+| qktttttttttt | 302011 | w025 | v15-rate-pair-h265-w025-s302011 | running | no | -- | -- | -- |
+| qktttttttttt | 302011 | w1 | v15-rate-pair-h265-w1-s302011 | running | no | -- | -- | -- |
+| baoancut | 302012 | w025 | v15-rate-pair-h265-w025-s302012 | evaluated | yes | +7.4565 | -3.5988 | -0.4808 |
+| baoancut | 302012 | w1 | v15-rate-pair-h265-w1-s302012 | evaluated | yes | +3.6851 | -2.5520 | -0.9615 |
+| trnhlng | 302013 | w025 | v15-rate-pair-h265-w025-s302013 | evaluated | yes | +4.0560 | -1.1715 | +0.0000 |
+| trnhlng | 302013 | w1 | v15-rate-pair-h265-w1-s302013 | evaluated | yes | +1.4139 | -1.1445 | -0.9615 |
 
 Aggregates withheld until all six registered jobs have valid audited development evidence.
 
-- v15-rate-pair-h265-w025-s302011: job is submit_failed; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w1-s302011: job is submit_failed; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w025-s302012: job is running; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w1-s302012: job is running; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w025-s302013: job is running; terminal audited evaluation required; local audit has not passed.
-- v15-rate-pair-h265-w1-s302013: job is running; terminal audited evaluation required; local audit has not passed.
+- v15-rate-pair-h265-w025-s302011: job is running; terminal audited evaluation required; local audit has not passed.
+- v15-rate-pair-h265-w1-s302011: job is running; terminal audited evaluation required; local audit has not passed.
 
 Uncertainty and scope:
 
