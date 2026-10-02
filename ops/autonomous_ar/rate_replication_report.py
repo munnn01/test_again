@@ -114,12 +114,26 @@ def _checkpoint_issues(job, manifest, arm):
     elif type(checkpoint["global_step"]) is not int or checkpoint["global_step"] != manifest["steps"]:
         raise ValueError(f"job {job['slug']}: checkpoint global_step differs from registered steps")
     cfg = checkpoint.get("cfg", {})
-    loss = cfg.get("loss", {}) if isinstance(cfg, dict) else {}
+    cfg = cfg if isinstance(cfg, dict) else {}
+    if "seed" not in cfg:
+        issues.append("checkpoint cfg.seed missing")
+    elif type(cfg["seed"]) is not int or cfg["seed"] != job["seed"]:
+        raise ValueError(f"job {job['slug']}: checkpoint cfg.seed differs from registered block seed")
+    codec = cfg.get("codec", {})
+    if not isinstance(codec, dict) or "ste_codec" not in codec:
+        issues.append("checkpoint cfg.codec.ste_codec missing")
+    elif codec["ste_codec"] != "h265":
+        raise ValueError(f"job {job['slug']}: checkpoint cfg.codec.ste_codec must be h265")
+    loss = cfg.get("loss", {})
     constraint = loss.get("task_regret_constraint", {}) if isinstance(loss, dict) else {}
     if not isinstance(constraint, dict):
         return issues + ["checkpoint task_regret_constraint missing"]
-    if "enabled" in constraint and constraint["enabled"] is not True:
-        raise ValueError(f"job {job['slug']}: checkpoint task-regret constraint disabled")
+    if "enabled" not in constraint:
+        issues.append("checkpoint task_regret_constraint.enabled missing")
+    elif constraint["enabled"] is not True:
+        raise ValueError(f"job {job['slug']}: checkpoint task_regret_constraint.enabled must be True")
+    if constraint.get("primal_mode", "signed") != "signed":
+        raise ValueError(f"job {job['slug']}: checkpoint primal_mode must be signed (default)")
     per_codec = constraint.get("per_codec", {})
     override = per_codec.get(manifest["codec"], {}) if isinstance(per_codec, dict) else {}
     for label, settings in (("global", constraint), (manifest["codec"], override)):
