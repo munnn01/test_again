@@ -1,0 +1,116 @@
+{
+  "extracted_at": "2026-10-02T09:55:17.778803+00:00",
+  "method": "pypdf layout text; page numbers are physical PDF pages",
+  "sources": [
+    {
+      "file": "D:\\STUDY\\LAB\\News\\A Preprocessing Framework for Video Machine Vision under Compression.pdf",
+      "sha256": "094f512a2fcfd6004ac9bb4a8aa060402445e08dd1e9df6f915dcc0022405b53",
+      "pages": 10,
+      "characters": 26063,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\01_A Preprocessing Framework for Video Machine Vision under Compression.txt",
+      "title_excerpt": "A Preprocessing Framework for Video Machine Vision under Compression Fei Zhao∗1, Mengxi Guo †, Shijie Zhao †2, Junlin Li †, Li Zhang † and Xiaodong Xie ∗ ∗School of Computer Science, †Bytedance ∗Peking University No. 48 Zhichun Road No.5 Yiheyuan Road Beijing, Beijing, 100098, China Beijing, Beijing, 100871, Chinaguomengxi.qoelab@bytedanc",
+      "reading_scope": "methods pp4-6"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\Preprocessing_Enhanced_Image_Compression_for_Machine_Vision.pdf",
+      "sha256": "a2508c158fda3867873ec014ab9f77cfc7e66110bfdaf2b7819869a48b467575",
+      "pages": 13,
+      "characters": 82415,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\02_Preprocessing_Enhanced_Image_Compression_for_Machine_Vision.txt",
+      "title_excerpt": "13556 IEEE TRANSACTIONS ON CIRCUITS AND SYSTEMS FOR VIDEO TECHNOLOGY , VOL. 34, NO. 12, DECEMBER 2024 Preprocessing Enhanced Image Compression for Machine Vision Guo Lu  , Member, IEEE, Xingtong Ge  , Student Member, IEEE, Tianxiong Zhong  , Qiang Hu  , and Jing Geng Abstract— Recently, more and more images are compressed and sent to the ",
+      "reading_scope": "proxy and training methods, physical p5"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\GOP-Based_Deep_Preprocessing_for_Video_Coding.pdf",
+      "sha256": "b4bbf2c6ada28db10464c41864efef6540b07379c4ed1681211426d0567ef24a",
+      "pages": 5,
+      "characters": 34876,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\03_GOP-Based_Deep_Preprocessing_for_Video_Coding.txt",
+      "title_excerpt": "GOP-based Deep Preprocessing for Video Coding Daichi Arai, Shunsuke Iwamura, Kazuhisa Iguchi, Atsuro Ichigaya Science & Technology Research Laboratories NHK (Japan Broadcasting Corporation) Tokyo, Japan {arai.d-es, iwamura.s-gc, iguchi.k-eq, ichigaya.a-go }@nhk.or.jp Abstract—Neural network-based video preprocessing tech- niques have rece",
+      "reading_scope": "methods pp2-3; visual p3"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\Adaptive_High-Frequency_Preprocessing_for_Video_Coding.pdf",
+      "sha256": "e92aab5d9b307b66d6c1013f67f244d1dc56210d0b672c21c2a0de986d4e04e9",
+      "pages": 6,
+      "characters": 1721,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\04_Adaptive_High-Frequency_Preprocessing_for_Video_Coding.txt",
+      "title_excerpt": "ADAPTIVE HIGH-FREQUENCY PREPROCESSING FOR VIDEO CODING Yingxue Pang∗, Shijie Zhao†, Junlin Li, Li Zhang Bytedance Inc. ABSTRACT High-frequency components are crucial for maintaining video clarity and realism, but they also significantly impact coding bitrate, resulting in increased bandwidth and storage costs. This paper presents an end-t",
+      "reading_scope": "visual p2 only; low text extraction"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\Video Coding for Machines with Feature-Based Rate-Distortion Optimization.pdf",
+      "sha256": "e7a3b7a32fe93d03b22166806ae6421dfb53866217606b73fe40c3a0a90f7fd8",
+      "pages": 6,
+      "characters": 41083,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\05_Video Coding for Machines with Feature-Based Rate-Distortion Optimization.txt",
+      "title_excerpt": "Video Coding for Machines with Feature-Based Rate-Distortion Optimization Kristian Fischer, Fabian Brand, Christian Herglotz, Andr ´e Kaup Multimedia Communications and Signal Processing Friedrich-Alexander-Universit¨at Erlangen-N ¨urnberg (F AU) Cauerstr. 7, 91058 Erlangen, Germany {Kristian.Fischer, Fabian.Brand, Christian.Herglotz, And",
+      "reading_scope": "methods pp1-2"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\Task-Switchable_Pre-Processor_for_Image_Compression_for_Multiple_Machine_Vision_Tasks.pdf",
+      "sha256": "d8dd0b6fca692a723bbe0a18582c3b494c10e42b77a5a7df138361af72a7d1c5",
+      "pages": 14,
+      "characters": 106048,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\06_Task-Switchable_Pre-Processor_for_Image_Compression_for_Multiple_Machine_Vision_Tasks.txt",
+      "title_excerpt": "6416 IEEE TRANSACTIONS ON CIRCUITS AND SYSTEMS FOR VIDEO TECHNOLOGY , VOL. 34, NO. 7, JULY 2024 Task-Switchable Pre-Processor for Image Compression for Multiple Machine Vision Tasks Mingyi Yang  , Graduate Student Member , IEEE , Fei Yang  , Luka Murn  , Marc Gorriz Blanch  , Juil Sock  , Shuai Wan  , Member , IEEE, Fuzheng Yang  , Member",
+      "reading_scope": "methods pp3-4"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\Semantic_Preprocessor_for_Image_Compression_for_Machines.pdf",
+      "sha256": "3eb2573e84255064623d50feaa0a0d0b5e0d05bf7718a5e34c20c02d9a14908f",
+      "pages": 5,
+      "characters": 27649,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\07_Semantic_Preprocessor_for_Image_Compression_for_Machines.txt",
+      "title_excerpt": "SEMANTIC PREPROCESSOR FOR IMAGE COMPRESSION FOR MACHINES Mingyi Yang1, Luis Herranz 2,3, Fei Yang2, Luka Murn 4, Marc Gorriz Blanch4, Shuai Wan5, Fuzheng Yang1, Marta Mrak4 1 School of Telecommunications Engineering, Xidian University, Xi’an, China 2Computer Vision Center, Barcelona, Spain 3Universitat Aut`onoma de Barcelona, Barcelona, S",
+      "reading_scope": "methods p2"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\Symmetric Entropy-Constrained Video Coding for Machines.pdf",
+      "sha256": "e9546abdd65984d80af89a50edb0b3e6384349eaba1a7b3f727547dad474bea2",
+      "pages": 16,
+      "characters": 112365,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\08_Symmetric Entropy-Constrained Video Coding for Machines.txt",
+      "title_excerpt": "1 Symmetric Entropy-Constrained Video Coding for Machines Yuxiao Sun ID , Meiqin Liu ID , Chao Yao ID ,Member, IEEE, Qi Tang ID , Jian Jin ID ,Member, IEEE, Weisi Lin ID ,Fellow, IEEE, Frederic Dufaux ID ,Fellow, IEEE, and Yao Zhao ID ,Fellow, IEEE Abstract—As video transmission increasingly serves machine vision systems (MVS) instead of ",
+      "reading_scope": "abstract and methods pp1,3-5"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\News\\MLSys-2022-accmpeg-optimizing-video-encoding-for-accurate-video-analytics-Paper.pdf",
+      "sha256": "6b63d60f40419fbe453d135ce294a16aa9006b6dd0a0f308e0dfb00cb856f928",
+      "pages": 17,
+      "characters": 96980,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\09_MLSys-2022-accmpeg-optimizing-video-encoding-for-accurate-video-analytics-Paper.txt",
+      "title_excerpt": "ACCMPEG: O PTIMIZING VIDEO ENCODING FOR VIDEO ANALYTICS Kuntai Du 1 Qizheng Zhang 1 Anton Arapin 1 Haodong Wang 1 Zhengxu Xia 1 Junchen Jiang 1 ABSTRACT With more videos being recorded by edge sensors (cameras) and analyzed by computer-vision deep neural nets (DNNs), a new breed of video streaming systems has emerged, with the goal to com",
+      "reading_scope": "abstract and quality selection passages"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\bao_1\\papers\\Sandwiched_Compression_Neural_Network_Wrappers_Repurposing_Standard_Codecs.pdf",
+      "sha256": "a7f57a9f319ebe77b30eb1baa7b7e2e91f7acb287b55bfdb72e41ee2a874e4e1",
+      "pages": 20,
+      "characters": 131275,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\10_Sandwiched_Compression_Neural_Network_Wrappers_Repurposing_Standard_Codecs.txt",
+      "title_excerpt": "IEEE TRANSACTION ON XXXX, 2024 1 Sandwiched Compression: Repurposing Standard Codecs with Neural Network Wrappers Onur G. Guleryuz, Philip A. Chou, Berivan Isik, Hugues Hoppe, Danhang Tang, Ruofei Du, Jonathan Taylor, Philip Davidson, and Sean Fanello Abstract—We propose sandwiching standard image and video codecs between pre- and post-pr",
+      "reading_scope": "proxy appendix physical p17, Eqs39/40; visual p17"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\bao_1\\papers\\RPP_Rate-Perception_Optimized_Preprocessing_for_Video_Coding.pdf",
+      "sha256": "f8135849d98b7e3c60af71bba37198cb7d4d605047ba0e389d371ce15c448b4a",
+      "pages": 9,
+      "characters": 48897,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\11_RPP_Rate-Perception_Optimized_Preprocessing_for_Video_Coding.txt",
+      "title_excerpt": "Rate-Perception Optimized Preprocessing for Video Coding Chengqian Ma, Zhiqiang Wu, Chunlei Cai, Pengwei Zhang, Yi Wang, Long Zheng, Chao Chen, Quan Zhou Bilibili Inc. Shanghai, China {machengqian01, wuzhiqiang01, caichunlei, zhangpengwei, wangyi, zhenglong, chenchao02, zhouquan }@bilibili.com RPP Preprocess Single-Pass Standard codec e.g",
+      "reading_scope": "methods pp3-4"
+    },
+    {
+      "file": "D:\\STUDY\\LAB\\bao_1\\papers\\Gaussian_Filtering_to_Improve_Object_Detection_Accuracy_in_Coded_Video.pdf",
+      "sha256": "5e02b53618e304bda4f7c5fbe106e77b3058ee09a884cb27e992cb9d0530edf4",
+      "pages": 4,
+      "characters": 28017,
+      "extraction": "D:\\STUDY\\LAB\\bao_1\\output\\research_v17_20261002\\12_Gaussian_Filtering_to_Improve_Object_Detection_Accuracy_in_Coded_Video.txt",
+      "title_excerpt": "Gaussian Filtering to Improve Object Detection Accuracy in Coded Video Kota Otsuki School of Computer Science and Engineering The University of Aizu Aizu-Wakamatsu, Fukushima, Japan m5291060@u-aizu.ac.jp Koyo Nitta School of Computer Science and Engineering The University of Aizu Aizu-Wakamatsu, Fukushima, Japan koyo@u-aizu.ac.jp Abstract",
+      "reading_scope": "triage only; not used for V17 intervention"
+    }
+  ],
+  "registration_time": "2026-10-02T10:16:47.719838+00:00",
+  "pdfs_uploaded": false
+}
