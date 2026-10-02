@@ -1,11 +1,11 @@
 # V17 execution status - 2026-10-02
 
-Updated 2026-10-02T10:28:14.706320+00:00. Both notebooks have a positive version1 push acknowledgment and a manually verified remote running status. No measured development BD-rate is available; no confirmation or promotion has occurred.
+Updated 2026-10-02T10:46:01.830380+00:00. Both notebooks have a positive version1 push acknowledgment and a manually verified remote running status. No measured development BD-rate is available; no confirmation or promotion has occurred.
 
 | Arm | Notebook | Parsed config delta from n9 | Push acknowledged at (UTC) | Remote status |
 |---|---|---|---|---|
-| A / n13 | [v17-ar-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-log-rate-h264-s302001) | add codec.rate_model=log_coeff | 2026-10-02T10:24:27.019571+00:00 | running at 2026-10-02T10:25:09.547138+00:00 |
-| B / n14 | [v17-ar-calibrated-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-calibrated-log-rate-h264-s302001) | add codec.rate_model=log_coeff; codec.ste_rate_calibration=true | 2026-10-02T10:24:48.335297+00:00 | running at 2026-10-02T10:25:11.085037+00:00 |
+| A / n13 | [v17-ar-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-log-rate-h264-s302001) | add codec.rate_model=log_coeff | 2026-10-02T10:24:27.019571+00:00 | running at 2026-10-02T10:46:00.162538+00:00 |
+| B / n14 | [v17-ar-calibrated-log-rate-h264-s302001](https://www.kaggle.com/code/qktttttttttt/v17-ar-calibrated-log-rate-h264-s302001) | add codec.rate_model=log_coeff; codec.ste_rate_calibration=true | 2026-10-02T10:24:48.335297+00:00 | running at 2026-10-02T10:46:01.830380+00:00 |
 
 ## Shared implementation and readiness
 
